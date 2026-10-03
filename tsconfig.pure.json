@@ -1,0 +1,14 @@
+{
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "lib": ["ES2023"],
+        "types": []
+    },
+    "include": [
+        "src/geometry/**/*.ts",
+        "src/document/**/*.ts",
+        "src/commands/**/*.ts",
+        "src/dxf-io/**/*.ts"
+    ],
+    "exclude": ["**/*.test.ts", "**/__tests__/**"]
+}
