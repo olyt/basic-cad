@@ -5,7 +5,7 @@ import vue from 'eslint-plugin-vue'
 import tseslint from 'typescript-eslint'
 
 export default defineConfig([
-    globalIgnores(['dist/**', 'coverage/**', 'node_modules/**']),
+    globalIgnores(['dist/**', 'coverage/**', 'node_modules/**', '**/.venv/**']),
     js.configs.recommended,
     tseslint.configs.recommended,
     vue.configs['flat/recommended'],
