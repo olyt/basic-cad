@@ -33,11 +33,26 @@ jobs:
             - name: Install dependencies
               run: npm ci
 
+            - name: Set up Python for DXF checks
+              uses: actions/setup-python@v7.0.0
+              with:
+                  python-version-file: tools/dxf-check/.python-version
+                  cache: pip
+                  cache-dependency-path: tools/dxf-check/requirements.txt
+
+            - name: Install DXF checker dependencies
+              run: |
+                  python -m venv tools/dxf-check/.venv
+                  tools/dxf-check/.venv/bin/python -m pip install -r tools/dxf-check/requirements.txt
+
             - name: Check types, lint, and formatting
               run: npm run check
 
             - name: Run tests
               run: npm test
+
+            - name: Test DXF checker
+              run: npm run test:dxf-check
 
             - name: Build application
               run: npm run build
