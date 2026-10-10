@@ -1,6 +1,8 @@
 import js from '@eslint/js'
+import stylistic from '@stylistic/eslint-plugin'
 import { defineConfig, globalIgnores } from 'eslint/config'
 import prettier from 'eslint-config-prettier'
+import sonarjs from 'eslint-plugin-sonarjs'
 import vue from 'eslint-plugin-vue'
 import tseslint from 'typescript-eslint'
 
@@ -53,4 +55,51 @@ export default defineConfig([
         },
     },
     prettier,
+    {
+        plugins: { '@stylistic': stylistic, sonarjs },
+        rules: {
+            'sonarjs/cognitive-complexity': ['error', 10],
+            '@stylistic/padding-line-between-statements': [
+                'error',
+                { blankLine: 'always', prev: '*', next: 'block-like' },
+                { blankLine: 'always', prev: 'block-like', next: '*' },
+                {
+                    blankLine: 'always',
+                    prev: '*',
+                    next: ['const', 'let', 'var'],
+                },
+                {
+                    blankLine: 'always',
+                    prev: ['const', 'let', 'var'],
+                    next: '*',
+                },
+                {
+                    blankLine: 'any',
+                    prev: ['const', 'let', 'var'],
+                    next: ['const', 'let', 'var'],
+                },
+                { blankLine: 'always', prev: '*', next: 'return' },
+            ],
+            curly: ['error', 'all'],
+            'no-nested-ternary': 'error',
+            eqeqeq: ['error', 'always'],
+        },
+    },
+    {
+        files: ['**/*.ts', '**/*.vue'],
+        languageOptions: {
+            parserOptions: {
+                project: ['./tsconfig.json', './tsconfig.node.json'],
+                tsconfigRootDir: import.meta.dirname,
+                extraFileExtensions: ['.vue'],
+            },
+        },
+        rules: {
+            '@typescript-eslint/no-floating-promises': [
+                'error',
+                { ignoreVoid: false },
+            ],
+            '@typescript-eslint/no-misused-promises': 'error',
+        },
+    },
 ])

@@ -37,10 +37,13 @@ const forbiddenEnvironments = [
 
 if (parsed.fileNames.length > 0) {
     const program = ts.createProgram(parsed.fileNames, parsed.options)
+
     diagnostics.push(...ts.getPreEmitDiagnostics(program))
+
     const loadedFiles = program
         .getSourceFiles()
         .map((source) => source.fileName)
+
     for (const { code, pattern, messageText } of forbiddenEnvironments) {
         if (loadedFiles.some((fileName) => pattern.test(fileName))) {
             diagnostics.push({
