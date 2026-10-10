@@ -14,7 +14,17 @@ import { ESLint } from 'eslint'
 import { afterEach, describe, expect, it } from 'vitest'
 
 const root = fileURLToPath(new URL('../', import.meta.url))
-const lint = new ESLint({ cwd: root })
+// Import-boundary fixtures are virtual files; these checks only need syntax.
+const lint = new ESLint({
+    cwd: root,
+    overrideConfig: {
+        languageOptions: { parserOptions: { project: false } },
+        rules: {
+            '@typescript-eslint/no-floating-promises': 'off',
+            '@typescript-eslint/no-misused-promises': 'off',
+        },
+    },
+})
 const temporaryDirectories: string[] = []
 const pureModules = ['geometry', 'document', 'commands', 'dxf-io']
 
@@ -26,10 +36,13 @@ afterEach(() => {
 
 function checkPure(files: Record<string, string>) {
     const directory = mkdtempSync(join(tmpdir(), 'basic-cad-boundaries-'))
+
     temporaryDirectories.push(directory)
+
     for (const config of ['tsconfig.json', 'tsconfig.pure.json']) {
         copyFileSync(join(root, config), join(directory, config))
     }
+
     // Real type definitions, so fixtures can load @types/node the way a
     // dependency would. Cleanup removes the link, not its target.
     mkdirSync(join(directory, 'node_modules'))
@@ -38,11 +51,14 @@ function checkPure(files: Record<string, string>) {
         join(directory, 'node_modules/@types'),
         'junction',
     )
+
     for (const [file, contents] of Object.entries(files)) {
         const path = join(directory, file)
+
         mkdirSync(dirname(path), { recursive: true })
         writeFileSync(path, contents)
     }
+
     const result = spawnSync(
         process.execPath,
         [
@@ -51,13 +67,18 @@ function checkPure(files: Record<string, string>) {
         ],
         { encoding: 'utf8', timeout: 10_000 },
     )
-    if (result.error) throw result.error
+
+    if (result.error) {
+        throw result.error
+    }
+
     return result
 }
 
 describe('pure-module typechecking', () => {
     it('handles the empty scaffold without adding fake source modules', () => {
         const result = checkPure({})
+
         expect(result.status).toBe(0)
         expect(result.stdout).toContain('no source files yet')
     })
@@ -70,6 +91,7 @@ describe('pure-module typechecking', () => {
             'src/geometry/value.test.ts': 'window.alert("test environment")',
             'src/ui/panel.ts': 'document.title = "browser environment"',
         })
+
         expect(result.stderr).toBe('')
         expect(result.status).toBe(0)
     })
@@ -79,6 +101,7 @@ describe('pure-module typechecking', () => {
             [`src/${module}/invalid.ts`]:
                 'export const element: HTMLElement = document.body; window.alert("invalid")',
         })
+
         expect(result.status).toBe(1)
         expect(result.stderr).toContain("Cannot find name 'HTMLElement'")
         expect(result.stderr).toContain("Cannot find name 'document'")
@@ -90,6 +113,7 @@ describe('pure-module typechecking', () => {
             'src/commands/invalid.ts':
                 'export const env = import.meta.env; export const cwd = process.cwd()',
         })
+
         expect(result.status).toBe(1)
         expect(result.stderr).toContain("Property 'env' does not exist")
         expect(result.stderr).toContain("Cannot find name 'process'")
@@ -100,6 +124,7 @@ describe('pure-module typechecking', () => {
             'src/geometry/environment.d.ts': '/// <reference lib="dom" />',
             'src/geometry/invalid.ts': 'export const body = document.body',
         })
+
         expect(result.status).toBe(1)
         expect(result.stderr).toContain(
             'must not load DOM or WebWorker libraries',
@@ -111,6 +136,7 @@ describe('pure-module typechecking', () => {
             'src/geometry/environment.d.ts': '/// <reference types="node" />',
             'src/geometry/invalid.ts': 'export const cwd = process.cwd()',
         })
+
         expect(result.status).toBe(1)
         expect(result.stderr).toContain(
             'must not load Node.js type definitions',
@@ -126,6 +152,7 @@ describe('pure-module typechecking', () => {
             'src/document/invalid.ts':
                 "import { ready } from 'server-lib'\nexport const cwd = ready ? process.cwd() : ''",
         })
+
         expect(result.status).toBe(1)
         expect(result.stderr).toContain(
             'must not load Node.js type definitions',
@@ -137,6 +164,7 @@ describe('pure-module typechecking', () => {
             'tsconfig.pure.json':
                 '{"compilerOptions":{"lib":["not-a-real-lib"]}}',
         })
+
         expect(result.status).toBe(1)
         expect(result.stderr).toContain('--lib')
     })
@@ -147,6 +175,7 @@ describe('pure-module import boundaries', () => {
         const [result] = await lint.lintText("export { ref } from 'vue'", {
             filePath: join(root, `src/${module}/invalid.ts`),
         })
+
         expect(result?.messages).toContainEqual(
             expect.objectContaining({ ruleId: 'no-restricted-imports' }),
         )
@@ -173,6 +202,7 @@ describe('pure-module import boundaries', () => {
         const [result] = await lint.lintText(code, {
             filePath: join(root, 'src/geometry/invalid.ts'),
         })
+
         expect(
             result?.messages.some((message) =>
                 ['no-restricted-imports', 'no-restricted-syntax'].includes(
@@ -190,6 +220,7 @@ describe('pure-module import boundaries', () => {
             const [result] = await lint.lintText(code, {
                 filePath: join(root, file),
             })
+
             expect(result?.messages).toEqual([])
         }
     })
