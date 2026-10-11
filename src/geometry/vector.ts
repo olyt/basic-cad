@@ -25,18 +25,23 @@ export function createVector2(x: number, y: number): Vector2 {
     return value
 }
 
+// For results computed from finite inputs, where infinity means overflow.
+function resultVector2(x: number, y: number): Vector2 {
+    return { x: finiteResult(x), y: finiteResult(y) }
+}
+
 export function add(a: Vector2, b: Vector2): Vector2 {
     assertFiniteVector2(a)
     assertFiniteVector2(b)
 
-    return createVector2(a.x + b.x, a.y + b.y)
+    return resultVector2(a.x + b.x, a.y + b.y)
 }
 
 export function subtract(a: Vector2, b: Vector2): Vector2 {
     assertFiniteVector2(a)
     assertFiniteVector2(b)
 
-    return createVector2(a.x - b.x, a.y - b.y)
+    return resultVector2(a.x - b.x, a.y - b.y)
 }
 
 export function scale(value: Vector2, factor: number): Vector2 {
@@ -46,7 +51,7 @@ export function scale(value: Vector2, factor: number): Vector2 {
         throw new RangeError('Scale factor must be finite.')
     }
 
-    return createVector2(value.x * factor, value.y * factor)
+    return resultVector2(value.x * factor, value.y * factor)
 }
 
 export function dot(a: Vector2, b: Vector2): number {

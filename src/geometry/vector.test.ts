@@ -109,6 +109,7 @@ describe('2D vectors', () => {
             () => distance(huge, scale(huge, -1)),
         ]) {
             expect(operation).toThrow(RangeError)
+            expect(operation).toThrow('exceeds the finite number range')
         }
     })
 })
