@@ -2,7 +2,7 @@ import { FULL_TURN, normalizeAngle } from './angle'
 import { createVector2, type Vector2 } from './vector'
 
 // Every curve kind the geometry kernel supports.
-export type CurveType = 'line' | 'circle' | 'arc'
+export type CurveType = 'line' | 'circle' | 'arc' | 'polyline'
 
 // Restricts each curve's tag to the list above.
 interface CurveOf<T extends CurveType> {
@@ -28,7 +28,14 @@ export interface Arc extends CurveOf<'arc'> {
     readonly sweep: number
 }
 
-export type Curve = Line | Circle | Arc
+export type PolylineSegment = Line | Arc
+
+export interface Polyline extends CurveOf<'polyline'> {
+    readonly segments: readonly PolylineSegment[]
+    readonly closed: boolean
+}
+
+export type Curve = Line | Circle | Arc | Polyline
 
 export const MAX_COORDINATE = 1e15
 

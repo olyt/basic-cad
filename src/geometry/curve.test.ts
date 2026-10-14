@@ -9,6 +9,7 @@ import {
     type CurveType,
 } from './curve'
 import { dot, length, subtract } from './vector'
+import { createPolyline } from './polyline'
 
 const origin = { x: 0, y: 0 }
 const quarterTurn = FULL_TURN / 4
@@ -17,6 +18,10 @@ const samples: Record<CurveType, () => Curve> = {
     line: () => createLine({ x: 1, y: 2 }, { x: 3, y: 4 }),
     circle: () => createCircle({ x: 5, y: 6 }, 7),
     arc: () => createArc({ x: 8, y: 9 }, 10, quarterTurn, -quarterTurn),
+    polyline: () =>
+        createPolyline([createLine(origin, { x: 1, y: 0 })], false, {
+            distance: 0,
+        }),
 }
 
 describe('curve types', () => {
