@@ -1,5 +1,10 @@
 import { FULL_TURN } from './angle'
-import { createArc, createLine, type Arc, type PolylineSegment } from './curve'
+import {
+    createArc,
+    createLine,
+    type ArcInput,
+    type PolylineSegment,
+} from './curve'
 import { createVector2, type Vector2 } from './vector'
 
 export function copySegment(segment: PolylineSegment): PolylineSegment {
@@ -34,41 +39,87 @@ export function segmentEndpoints(segment: PolylineSegment): {
         return { start: copy.start, end: copy.end }
     }
 
-    const start =
-        cardinalPoint(copy, copy.startAngle) ??
-        createVector2(
-            copy.center.x + copy.radius * Math.cos(copy.startAngle),
-            copy.center.y + copy.radius * Math.sin(copy.startAngle),
-        )
-    const rotation =
-        Math.abs(copy.sweep) > Math.PI
-            ? copy.sweep - Math.sign(copy.sweep) * FULL_TURN
-            : copy.sweep
-    // At this scale the cubic correction is below double precision.
-    const chord =
-        Math.abs(rotation) < 1e-8
-            ? copy.radius * rotation
-            : 2 * copy.radius * Math.sin(rotation / 2)
-    const midpointAngle = copy.startAngle + rotation / 2
-    const endAngle = copy.startAngle + rotation
-    const addedRotation = endAngle - copy.startAngle
-    // TwoSum detects a tiny rotation lost when adding it to the start angle.
-    const error =
-        copy.startAngle -
-        (endAngle - addedRotation) +
-        (rotation - addedRotation)
-    const cardinalEnd = error === 0 ? cardinalPoint(copy, endAngle) : undefined
-    const end =
-        cardinalEnd ??
-        createVector2(
-            start.x - chord * Math.sin(midpointAngle),
-            start.y + chord * Math.cos(midpointAngle),
-        )
-
-    return { start, end }
+    return {
+        start: circularEvaluation(copy, 0).point,
+        end: circularEvaluation(copy, 1).point,
+    }
 }
 
-function cardinalPoint(arc: Arc, angle: number): Vector2 | undefined {
+export function circularEvaluation(
+    traversal: ArcInput,
+    parameter: number,
+): {
+    point: Vector2
+    tangent: Vector2
+} {
+    const startDirection =
+        cardinalDirection(traversal.startAngle) ??
+        createVector2(
+            Math.cos(traversal.startAngle),
+            Math.sin(traversal.startAngle),
+        )
+    const start = pointForDirection(traversal, startDirection)
+    const rawRotation = traversal.sweep * parameter
+    const rotation =
+        Math.abs(rawRotation) > Math.PI
+            ? rawRotation - Math.sign(rawRotation) * FULL_TURN
+            : rawRotation
+    // At this scale the cubic correction is below double precision.
+    let chord = 2 * traversal.radius * Math.sin(rotation / 2)
+
+    if (Math.abs(rotation) < 1e-8) {
+        chord =
+            rotation === rawRotation
+                ? traversal.radius * traversal.sweep * parameter
+                : traversal.radius * rotation
+    }
+
+    const midpointDirection = rotate(startDirection, rotation / 2)
+    const endAngle = traversal.startAngle + rotation
+    const addedRotation = endAngle - traversal.startAngle
+    // TwoSum detects a tiny rotation lost when adding it to the start angle.
+    const error =
+        traversal.startAngle -
+        (endAngle - addedRotation) +
+        (rotation - addedRotation)
+    const rotationRepresented = rotation !== 0 || chord === 0
+    const cardinalEnd =
+        error === 0 && rotationRepresented
+            ? cardinalDirection(endAngle)
+            : undefined
+    const point = cardinalEnd
+        ? pointForDirection(traversal, cardinalEnd)
+        : createVector2(
+              start.x - chord * midpointDirection.y,
+              start.y + chord * midpointDirection.x,
+          )
+    const direction = cardinalEnd ?? rotate(startDirection, rotation)
+    const sign = Math.sign(traversal.sweep)
+
+    return {
+        point,
+        tangent: createVector2(-direction.y * sign, direction.x * sign),
+    }
+}
+
+function rotate(direction: Vector2, rotation: number): Vector2 {
+    const sine = Math.sin(rotation)
+    const cosine = Math.cos(rotation)
+
+    return createVector2(
+        direction.x * cosine - direction.y * sine,
+        direction.y * cosine + direction.x * sine,
+    )
+}
+
+function pointForDirection(traversal: ArcInput, direction: Vector2): Vector2 {
+    return createVector2(
+        traversal.center.x + direction.x * traversal.radius,
+        traversal.center.y + direction.y * traversal.radius,
+    )
+}
+
+function cardinalDirection(angle: number): Vector2 | undefined {
     // Match the original sum, avoiding any rounding during angle normalization.
     const axes = [
         { x: 1, y: 0 },
@@ -85,10 +136,7 @@ function cardinalPoint(arc: Arc, angle: number): Vector2 | undefined {
                 angle,
             )
         ) {
-            return createVector2(
-                arc.center.x + axis.x * arc.radius,
-                arc.center.y + axis.y * arc.radius,
-            )
+            return axis
         }
     }
 
