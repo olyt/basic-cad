@@ -89,6 +89,10 @@ describe('ordered polylines', () => {
             )
         }
 
+        expect(() => createPolyline([circle], false, exact)).toThrow(
+            'Polyline segments must be lines or arcs, not circle.',
+        )
+
         expect(() =>
             createPolyline([line], 'true' as unknown as boolean, exact),
         ).toThrow(RangeError)

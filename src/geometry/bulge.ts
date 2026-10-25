@@ -10,6 +10,10 @@ export interface BulgeSegment {
     readonly bulge: number
 }
 
+// Endpoint reconstruction must keep eight significant digits relative to the
+// input endpoint/chord scale. This budget never permits flattening an arc.
+const RELATIVE_BUDGET = 1e-8
+
 export function segmentToBulge(segment: PolylineSegment): BulgeSegment {
     const copy = copySegment(segment)
     const { start, end } = segmentEndpoints(copy)
@@ -64,8 +68,6 @@ export function bulgeToSegment(
     )
 
     const reconstructed = segmentToBulge(arc)
-    // Require eight significant digits relative to the input endpoint/chord scale.
-    // This numerical admission budget is separate from model connectivity tolerance.
     const scale = Math.max(
         chord,
         Math.abs(start.x),
@@ -73,7 +75,7 @@ export function bulgeToSegment(
         Math.abs(end.x),
         Math.abs(end.y),
     )
-    const tolerance = { distance: scale * 1e-8 }
+    const tolerance = { distance: scale * RELATIVE_BUDGET }
 
     if (
         !pointsCoincide(reconstructed.start, line.start, tolerance) ||

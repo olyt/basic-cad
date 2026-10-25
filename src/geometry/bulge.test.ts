@@ -4,6 +4,7 @@ import { bulgeToSegment, segmentToBulge } from './bulge'
 import { MAX_COORDINATE, createArc, createLine } from './curve'
 import { segmentEndpoints } from './segment'
 import type { Vector2 } from './vector'
+import { seededRandom } from '../test-support/random'
 
 const start = { x: 0, y: 0 }
 const end = { x: 2, y: 0 }
@@ -94,6 +95,72 @@ describe('bulge conversion', () => {
         },
     )
 
+    it.each([
+        [{ x: 2, y: 0 }, 2e-8],
+        [{ x: 2, y: 0 }, -2e-8],
+        [{ x: 1000, y: 0 }, 1e-8],
+        [{ x: 1000, y: 0 }, -1e-8],
+        [{ x: 1e7, y: 0 }, 2e-8],
+        [{ x: 1e7, y: 0 }, -2e-8],
+    ])('preserves shallow arc curvature: end %o, bulge %s', (arcEnd, bulge) => {
+        const arc = bulgeToSegment(start, arcEnd, bulge)
+
+        expect(arc.type).toBe('arc')
+        expect(segmentToBulge(arc).bulge / bulge).toBeCloseTo(1, 14)
+
+        if (arc.type === 'arc') {
+            const sagitta = 2 * arc.radius * Math.sin(arc.sweep / 4) ** 2
+
+            expect(sagitta / ((arcEnd.x * Math.abs(bulge)) / 2)).toBeCloseTo(
+                1,
+                14,
+            )
+        }
+    })
+
+    it.each([4e-8, -4e-8, 4e-12, -4e-12])(
+        'round-trips a small sweep %s without flattening',
+        (sweep) => {
+            const original = createArc(start, 1, 0, sweep)
+            const converted = segmentToBulge(original)
+            const restored = bulgeToSegment(
+                converted.start,
+                converted.end,
+                converted.bulge,
+            )
+
+            expect(restored.type).toBe('arc')
+
+            if (restored.type === 'arc') {
+                expect(restored.radius).toBeCloseTo(original.radius, 12)
+                expect(restored.sweep / sweep).toBeCloseTo(1, 14)
+            }
+        },
+    )
+
+    it('converts shallow arcs across chord lengths and directions', () => {
+        for (const chord of [1e-3, 1, 1e3, 1e5]) {
+            for (const angle of [0, 0.7, 2.9]) {
+                const chordEnd = {
+                    x: chord * Math.cos(angle),
+                    y: chord * Math.sin(angle),
+                }
+
+                for (const bulge of [2.0000001e-8, 1e-7, 1e-6]) {
+                    for (const sign of [1, -1]) {
+                        const arc = bulgeToSegment(
+                            start,
+                            chordEnd,
+                            sign * bulge,
+                        )
+
+                        expect(arc.type).toBe('arc')
+                    }
+                }
+            }
+        }
+    })
+
     it.each([NaN, Infinity, -Infinity])(
         'rejects non-finite bulge %s',
         (bulge) => {
@@ -104,6 +171,9 @@ describe('bulge conversion', () => {
     it.each([
         () => bulgeToSegment(start, start, 1),
         () => bulgeToSegment(start, end, 1e300),
+        () => bulgeToSegment(start, { x: 1, y: 0 }, 1e-12),
+        () => bulgeToSegment(start, { x: 1, y: 0 }, 1e-16),
+        () => bulgeToSegment(start, { x: 1000, y: 0 }, 1e-10),
         () => bulgeToSegment(start, end, 1e-300),
         () => bulgeToSegment(start, { x: 1e-300, y: 0 }, 1e-300),
         () =>
@@ -128,5 +198,72 @@ describe('bulge conversion', () => {
         () => segmentToBulge(createArc(start, 1, 0, Number.MIN_VALUE)),
     ])('rejects unrepresentable conversion %#', (convert) => {
         expect(convert).toThrow(RangeError)
+    })
+})
+
+describe('bulge conversion properties (fixed seed)', () => {
+    function attempt<T>(convert: () => T): T | string {
+        try {
+            return convert()
+        } catch (error) {
+            return (error as Error).message
+        }
+    }
+
+    it('round-trips random arcs through their bulge, keeping the sweep', () => {
+        const random = seededRandom(1)
+        const failures = Array.from({ length: 5000 }, () => {
+            const arc = createArc(
+                {
+                    x: random.between(-1e6, 1e6),
+                    y: random.between(-1e6, 1e6),
+                },
+                random.magnitude(-3, 6),
+                random.between(-10, 10),
+                random.sign() * random.between(1e-6, FULL_TURN - 1e-6),
+            )
+            const { start: from, end: to, bulge } = segmentToBulge(arc)
+            const restored = attempt(() => bulgeToSegment(from, to, bulge))
+
+            return { arc, restored }
+        }).filter(
+            ({ arc, restored }) =>
+                typeof restored === 'string' ||
+                restored.type !== 'arc' ||
+                Math.abs(restored.sweep - arc.sweep) > 1e-12,
+        )
+
+        expect(failures).toEqual([])
+    })
+
+    it('never flattens a random bulge, and converts every bulge from 1e-7 to an arc', () => {
+        const random = seededRandom(2)
+        const outcome = (convert: () => { type: string }): string => {
+            try {
+                return convert().type
+            } catch (error) {
+                return error instanceof RangeError ? 'rejected' : 'other error'
+            }
+        }
+        const failures = Array.from({ length: 20_000 }, () => {
+            const from = {
+                x: random.sign() * random.magnitude(-3, 6),
+                y: random.sign() * random.magnitude(-3, 6),
+            }
+            const chord = random.magnitude(-3, 5)
+            const direction = random.between(0, FULL_TURN)
+            const to = {
+                x: from.x + chord * Math.cos(direction),
+                y: from.y + chord * Math.sin(direction),
+            }
+            const bulge = random.sign() * random.magnitude(-15, -3)
+            const actual = outcome(() => bulgeToSegment(from, to, bulge))
+            const allowed =
+                Math.abs(bulge) >= 1e-7 ? ['arc'] : ['arc', 'rejected']
+
+            return { from, to, bulge, actual, allowed }
+        }).filter(({ actual, allowed }) => !allowed.includes(actual))
+
+        expect(failures).toEqual([])
     })
 })

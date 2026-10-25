@@ -6,6 +6,7 @@ import {
     normalizeAngle,
     signedSweep,
 } from './angle'
+import { seededRandom } from '../test-support/random'
 
 const quarterTurn = Math.PI / 2
 const exact = 0
@@ -265,4 +266,76 @@ describe('finite angle validation', () => {
             )
         },
     )
+})
+
+describe('arc membership properties (fixed seed)', () => {
+    const tolerance = 1e-12
+    const random = seededRandom(20261016)
+    // Unnormalized angles on purpose: transforms will produce them.
+    const cases = Array.from({ length: 20_000 }, () => ({
+        angle: random.between(-30, 30),
+        start: random.between(-30, 30),
+        end: random.between(-30, 30),
+        sweep: random.sign() * random.between(1e-9, FULL_TURN - 1e-9),
+        direction: (random.sign() > 0
+            ? 'counterclockwise'
+            : 'clockwise') as AngleDirection,
+    }))
+
+    function circularDistance(first: number, second: number): number {
+        const gap = Math.abs(normalizeAngle(first) - normalizeAngle(second))
+
+        return Math.min(gap, FULL_TURN - gap)
+    }
+
+    it('never excludes an included angle when the tolerance grows', () => {
+        const failures = cases.filter(
+            ({ angle, start, sweep }) =>
+                isAngleInsideArc(angle, start, sweep, tolerance) &&
+                !isAngleInsideArc(angle, start, sweep, 10 * tolerance),
+        )
+
+        expect(failures).toEqual([])
+    })
+
+    it('gives the same answer for an arc read from its other end', () => {
+        const failures = cases.filter(
+            ({ angle, start, sweep }) =>
+                isAngleInsideArc(angle, start, sweep, tolerance) !==
+                isAngleInsideArc(angle, start + sweep, -sweep, tolerance),
+        )
+
+        expect(failures).toEqual([])
+    })
+
+    it('puts every angle away from the endpoints in exactly one of an arc and its complement', () => {
+        const failures = cases.filter(({ angle, start, sweep }) => {
+            const end = start + sweep
+            const complement = Math.sign(sweep) * (FULL_TURN - Math.abs(sweep))
+            const nearEndpoint =
+                circularDistance(angle, start) < 1e-9 ||
+                circularDistance(angle, end) < 1e-9
+
+            return (
+                !nearEndpoint &&
+                isAngleInsideArc(angle, start, sweep, tolerance) ===
+                    isAngleInsideArc(angle, end, complement, tolerance)
+            )
+        })
+
+        expect(failures).toEqual([])
+    })
+
+    it('includes both ends of every sweep from signedSweep', () => {
+        const failures = cases.filter(({ start, end, direction }) => {
+            const sweep = signedSweep(start, end, direction)
+
+            return (
+                !isAngleInsideArc(end, start, sweep, tolerance) ||
+                !isAngleInsideArc(start, start, sweep, exact)
+            )
+        })
+
+        expect(failures).toEqual([])
+    })
 })
