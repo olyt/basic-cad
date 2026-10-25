@@ -17,11 +17,20 @@ const quarterTurn = FULL_TURN / 4
 const samples: Record<CurveType, () => Curve> = {
     line: () => createLine({ x: 1, y: 2 }, { x: 3, y: 4 }),
     circle: () => createCircle({ x: 5, y: 6 }, 7),
-    arc: () => createArc({ x: 8, y: 9 }, 10, quarterTurn, -quarterTurn),
-    polyline: () =>
-        createPolyline([createLine(origin, { x: 1, y: 0 })], false, {
-            distance: 0,
+    arc: () =>
+        createArc({
+            center: { x: 8, y: 9 },
+            radius: 10,
+            startAngle: quarterTurn,
+            sweep: -quarterTurn,
         }),
+    polyline: () =>
+        createPolyline(
+            { segments: [createLine(origin, { x: 1, y: 0 })], closed: false },
+            {
+                distance: 0,
+            },
+        ),
 }
 
 describe('curve types', () => {
@@ -38,7 +47,12 @@ describe('exact curve constructors', () => {
         const curves: Curve[] = [
             createLine({ x: 1, y: 2 }, { x: 3, y: 4 }),
             createCircle({ x: 5, y: 6 }, 7),
-            createArc({ x: 8, y: 9 }, 10, quarterTurn, -quarterTurn),
+            createArc({
+                center: { x: 8, y: 9 },
+                radius: 10,
+                startAngle: quarterTurn,
+                sweep: -quarterTurn,
+            }),
         ]
 
         expect(curves).toEqual([
@@ -57,7 +71,12 @@ describe('exact curve constructors', () => {
     it.each([quarterTurn, -quarterTurn, 3 * quarterTurn, -3 * quarterTurn])(
         'normalizes the start while preserving signed sweep %s',
         (sweep) => {
-            const arc = createArc(origin, 1, -3 * quarterTurn, sweep)
+            const arc = createArc({
+                center: origin,
+                radius: 1,
+                startAngle: -3 * quarterTurn,
+                sweep,
+            })
 
             expect(arc.startAngle).toBe(quarterTurn)
             expect(arc.sweep).toBe(sweep)
@@ -68,7 +87,12 @@ describe('exact curve constructors', () => {
         'normalizes equivalent arc start %s to positive zero',
         (startAngle) => {
             expect(
-                createArc(origin, 1, startAngle, quarterTurn).startAngle,
+                createArc({
+                    center: origin,
+                    radius: 1,
+                    startAngle,
+                    sweep: quarterTurn,
+                }).startAngle,
             ).toBe(0)
         },
     )
@@ -79,7 +103,12 @@ describe('exact curve constructors', () => {
         const center = { x: 5, y: 6 }
         const line = createLine(start, end)
         const circle = createCircle(center, 7)
-        const arc = createArc(center, 8, 0, quarterTurn)
+        const arc = createArc({
+            center,
+            radius: 8,
+            startAngle: 0,
+            sweep: quarterTurn,
+        })
 
         expect(line.start).not.toBe(start)
         expect(line.end).not.toBe(end)
@@ -107,9 +136,14 @@ describe('exact curve constructors', () => {
                 expect(() => createLine(point, origin)).toThrow(RangeError)
                 expect(() => createLine(origin, point)).toThrow(RangeError)
                 expect(() => createCircle(point, 1)).toThrow(RangeError)
-                expect(() => createArc(point, 1, 0, quarterTurn)).toThrow(
-                    RangeError,
-                )
+                expect(() =>
+                    createArc({
+                        center: point,
+                        radius: 1,
+                        startAngle: 0,
+                        sweep: quarterTurn,
+                    }),
+                ).toThrow(RangeError)
             }
         },
     )
@@ -125,9 +159,14 @@ describe('exact curve constructors', () => {
         -Infinity,
     ])('rejects invalid radius %s', (radius) => {
         expect(() => createCircle(origin, radius)).toThrow(RangeError)
-        expect(() => createArc(origin, radius, 0, quarterTurn)).toThrow(
-            RangeError,
-        )
+        expect(() =>
+            createArc({
+                center: origin,
+                radius,
+                startAngle: 0,
+                sweep: quarterTurn,
+            }),
+        ).toThrow(RangeError)
     })
 
     it.each([Number.MIN_VALUE, MAX_COORDINATE])(
@@ -136,9 +175,10 @@ describe('exact curve constructors', () => {
             const center = { x: MAX_COORDINATE, y: -MAX_COORDINATE }
 
             expect(createCircle(center, radius).radius).toBe(radius)
-            expect(createArc(center, radius, 0, quarterTurn).radius).toBe(
-                radius,
-            )
+            expect(
+                createArc({ center, radius, startAngle: 0, sweep: quarterTurn })
+                    .radius,
+            ).toBe(radius)
         },
     )
 
@@ -158,9 +198,14 @@ describe('exact curve constructors', () => {
                 expect(() => createCircle(point, 1)).toThrow(
                     'Coordinates must be within',
                 )
-                expect(() => createArc(point, 1, 0, quarterTurn)).toThrow(
-                    'Coordinates must be within',
-                )
+                expect(() =>
+                    createArc({
+                        center: point,
+                        radius: 1,
+                        startAngle: 0,
+                        sweep: quarterTurn,
+                    }),
+                ).toThrow('Coordinates must be within')
             }
         },
     )
@@ -209,22 +254,32 @@ describe('exact curve constructors', () => {
         Infinity,
         -Infinity,
     ])('rejects zero, full, oversized or non-finite sweep %s', (sweep) => {
-        expect(() => createArc(origin, 1, 0, sweep)).toThrow(RangeError)
+        expect(() =>
+            createArc({ center: origin, radius: 1, startAngle: 0, sweep }),
+        ).toThrow(RangeError)
     })
 
     it.each([Number.MIN_VALUE, -Number.MIN_VALUE, FULL_TURN - 2 ** -50])(
         'retains nonzero partial sweep %s',
         (sweep) => {
-            expect(createArc(origin, 1, 0, sweep).sweep).toBe(sweep)
+            expect(
+                createArc({ center: origin, radius: 1, startAngle: 0, sweep })
+                    .sweep,
+            ).toBe(sweep)
         },
     )
 
     it.each([NaN, Infinity, -Infinity])(
         'rejects non-finite arc start angle %s',
         (startAngle) => {
-            expect(() => createArc(origin, 1, startAngle, quarterTurn)).toThrow(
-                RangeError,
-            )
+            expect(() =>
+                createArc({
+                    center: origin,
+                    radius: 1,
+                    startAngle,
+                    sweep: quarterTurn,
+                }),
+            ).toThrow(RangeError)
         },
     )
 })

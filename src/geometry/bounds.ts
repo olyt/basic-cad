@@ -35,12 +35,12 @@ function arcBounds(arc: Arc): BoundingBox {
 
     for (const [index, point] of extrema.entries()) {
         if (
-            isAngleInsideArc(
-                (index * Math.PI) / 2,
-                arc.startAngle,
-                arc.sweep,
-                0,
-            )
+            isAngleInsideArc({
+                angle: (index * Math.PI) / 2,
+                startAngle: arc.startAngle,
+                sweep: arc.sweep,
+                angularTolerance: 0,
+            })
         ) {
             bounds = mergeBounds(bounds, pointBounds(point, point))
         }

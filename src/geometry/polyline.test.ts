@@ -14,12 +14,17 @@ const line = createLine(origin, { x: 1, y: 0 })
 
 describe('ordered polylines', () => {
     it('supports mixed arcs and lines with either closure flag', () => {
-        const arc = createArc(origin, 1, 0, Math.PI / 2)
+        const arc = createArc({
+            center: origin,
+            radius: 1,
+            startAngle: 0,
+            sweep: Math.PI / 2,
+        })
         const { start, end } = segmentEndpoints(arc)
         const segments = [arc, createLine(end, start)]
 
         for (const closed of [false, true]) {
-            const polyline = createPolyline(segments, closed, exact)
+            const polyline = createPolyline({ segments, closed }, exact)
 
             expect(polyline.type).toBe('polyline')
             expect(polyline.closed).toBe(closed)
@@ -30,15 +35,23 @@ describe('ordered polylines', () => {
     it('uses inclusive tolerance without snapping or reordering segments', () => {
         const following = createLine({ x: 1.125, y: 0 }, { x: 2, y: 0 })
         const segments = [line, following]
-        const polyline = createPolyline(segments, false, { distance: 0.125 })
+        const polyline = createPolyline(
+            { segments, closed: false },
+            { distance: 0.125 },
+        )
 
         expect(polyline.segments).toEqual(segments)
-        expect(() => createPolyline(segments, false, exact)).toThrow(RangeError)
         expect(() =>
-            createPolyline(segments, false, { distance: 0.124 }),
+            createPolyline({ segments, closed: false }, exact),
         ).toThrow(RangeError)
         expect(() =>
-            createPolyline([following, line], false, { distance: 0.125 }),
+            createPolyline({ segments, closed: false }, { distance: 0.124 }),
+        ).toThrow(RangeError)
+        expect(() =>
+            createPolyline(
+                { segments: [following, line], closed: false },
+                { distance: 0.125 },
+            ),
         ).toThrow(RangeError)
     })
 
@@ -46,14 +59,19 @@ describe('ordered polylines', () => {
         const almostClosed = createLine({ x: 1, y: 0 }, { x: 0.125, y: 0 })
         const segments = [line, almostClosed]
 
-        expect(createPolyline(segments, false, exact).closed).toBe(false)
-        expect(createPolyline(segments, true, { distance: 0.125 }).closed).toBe(
-            true,
+        expect(createPolyline({ segments, closed: false }, exact).closed).toBe(
+            false,
         )
-        expect(() => createPolyline(segments, true, exact)).toThrow(RangeError)
-        expect(() => createPolyline([line], true, { distance: 1 })).toThrow(
+        expect(
+            createPolyline({ segments, closed: true }, { distance: 0.125 })
+                .closed,
+        ).toBe(true)
+        expect(() => createPolyline({ segments, closed: true }, exact)).toThrow(
             RangeError,
         )
+        expect(() =>
+            createPolyline({ segments: [line], closed: true }, { distance: 1 }),
+        ).toThrow(RangeError)
     })
 
     it('copies the segment array and nested coordinates', () => {
@@ -61,10 +79,18 @@ describe('ordered polylines', () => {
         const end = { x: 1, y: 0 }
         const center = { x: 1, y: 1 }
         const input = { type: 'line' as const, start, end }
-        const expectedArc = createArc(center, 1, -Math.PI / 2, Math.PI / 2)
+        const expectedArc = createArc({
+            center,
+            radius: 1,
+            startAngle: -Math.PI / 2,
+            sweep: Math.PI / 2,
+        })
         const arc = { ...expectedArc, center }
         const segments = [input, arc]
-        const polyline = createPolyline(segments, false, { distance: 1e-12 })
+        const polyline = createPolyline(
+            { segments, closed: false },
+            { distance: 1e-12 },
+        )
 
         expect(polyline.segments).not.toBe(segments)
         expect(polyline.segments[0]).not.toBe(input)
@@ -81,29 +107,43 @@ describe('ordered polylines', () => {
     it('rejects empty, circle and invalid segments and nonboolean closure', () => {
         const circle = createCircle(origin, 1) as unknown as PolylineSegment
         const zeroLine = { type: 'line' as const, start: origin, end: origin }
-        const invalidArc = { ...createArc(origin, 1, 0, 1), radius: 0 }
-
-        for (const segments of [[], [circle], [zeroLine], [invalidArc]]) {
-            expect(() => createPolyline(segments, false, exact)).toThrow(
-                RangeError,
-            )
+        const invalidArc = {
+            ...createArc({
+                center: origin,
+                radius: 1,
+                startAngle: 0,
+                sweep: 1,
+            }),
+            radius: 0,
         }
 
-        expect(() => createPolyline([circle], false, exact)).toThrow(
-            'Polyline segments must be lines or arcs, not circle.',
-        )
+        for (const segments of [[], [circle], [zeroLine], [invalidArc]]) {
+            expect(() =>
+                createPolyline({ segments, closed: false }, exact),
+            ).toThrow(RangeError)
+        }
 
         expect(() =>
-            createPolyline([line], 'true' as unknown as boolean, exact),
+            createPolyline({ segments: [circle], closed: false }, exact),
+        ).toThrow('Polyline segments must be lines or arcs, not circle.')
+
+        expect(() =>
+            createPolyline(
+                { segments: [line], closed: 'true' as unknown as boolean },
+                exact,
+            ),
         ).toThrow(RangeError)
     })
 
     it.each([-1, NaN, Infinity, -Infinity])(
         'validates tolerance %s for even one open segment',
         (distance) => {
-            expect(() => createPolyline([line], false, { distance })).toThrow(
-                RangeError,
-            )
+            expect(() =>
+                createPolyline(
+                    { segments: [line], closed: false },
+                    { distance },
+                ),
+            ).toThrow(RangeError)
         },
     )
 })

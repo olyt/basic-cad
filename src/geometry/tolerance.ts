@@ -21,6 +21,7 @@ export function createModelTolerance(distance: number): ModelTolerance {
     return tolerance
 }
 
+// eslint-disable-next-line max-params -- two compared values and the tolerance comparing them read best in call order
 export function numbersEqual(
     a: number,
     b: number,
@@ -33,6 +34,7 @@ export function numbersEqual(
     return Math.abs(a - b) <= toleranceDistance(tolerance)
 }
 
+// eslint-disable-next-line max-params -- two compared points and the tolerance comparing them read best in call order
 export function pointsCoincide(
     a: Vector2,
     b: Vector2,

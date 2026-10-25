@@ -7,12 +7,12 @@ export function copySegment(segment: PolylineSegment): PolylineSegment {
         case 'line':
             return createLine(segment.start, segment.end)
         case 'arc':
-            return createArc(
-                segment.center,
-                segment.radius,
-                segment.startAngle,
-                segment.sweep,
-            )
+            return createArc({
+                center: segment.center,
+                radius: segment.radius,
+                startAngle: segment.startAngle,
+                sweep: segment.sweep,
+            })
 
         default: {
             const unsupported: never = segment

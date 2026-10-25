@@ -22,8 +22,11 @@ export function segmentToBulge(segment: PolylineSegment): BulgeSegment {
     createLine(start, end)
 
     const bulge = copy.type === 'line' ? 0 : sweepToBulge(copy.sweep)
+    // An arc whose bulge rounds to zero would come back as a straight line.
+    const representable =
+        Number.isFinite(bulge) && (copy.type === 'line' || bulge !== 0)
 
-    if (!Number.isFinite(bulge) || (copy.type === 'arc' && bulge === 0)) {
+    if (!representable) {
         throw new RangeError(
             'Arc bulge cannot be represented without losing geometry.',
         )
@@ -32,11 +35,11 @@ export function segmentToBulge(segment: PolylineSegment): BulgeSegment {
     return { start, end, bulge }
 }
 
-export function bulgeToSegment(
-    start: Vector2,
-    end: Vector2,
-    bulge: number,
-): PolylineSegment {
+export function bulgeToSegment({
+    start,
+    end,
+    bulge,
+}: BulgeSegment): PolylineSegment {
     if (!Number.isFinite(bulge)) {
         throw new RangeError('Bulge must be finite.')
     }
@@ -60,12 +63,15 @@ export function bulgeToSegment(
         x: line.start.x + x / 2 - (y / chord) * offset,
         y: line.start.y + y / 2 + (x / chord) * offset,
     }
-    const arc = createArc(
+    const arc = createArc({
         center,
         radius,
-        Math.atan2(line.start.y - center.y, line.start.x - center.x),
-        bulgeToSweep(bulge),
-    )
+        startAngle: Math.atan2(
+            line.start.y - center.y,
+            line.start.x - center.x,
+        ),
+        sweep: bulgeToSweep(bulge),
+    })
 
     const reconstructed = segmentToBulge(arc)
     const scale = Math.max(

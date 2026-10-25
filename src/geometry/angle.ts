@@ -3,6 +3,18 @@ export const FULL_TURN = 2 * Math.PI
 
 export type AngleDirection = 'clockwise' | 'counterclockwise'
 
+export interface AngleEndpoints {
+    readonly startAngle: number
+    readonly endAngle: number
+}
+
+export interface ArcAngleQuery {
+    readonly angle: number
+    readonly startAngle: number
+    readonly sweep: number
+    readonly angularTolerance: number
+}
+
 export function normalizeAngle(angle: number): number {
     if (!Number.isFinite(angle)) {
         throw new RangeError('Angle must be finite.')
@@ -40,8 +52,7 @@ function directionSign(direction: AngleDirection): 1 | -1 {
 
 // Equal normalized endpoints give zero; full circles need an explicit ±FULL_TURN.
 export function signedSweep(
-    startAngle: number,
-    endAngle: number,
+    { startAngle, endAngle }: AngleEndpoints,
     direction: AngleDirection,
 ): number {
     const sign = directionSign(direction)
@@ -67,12 +78,8 @@ function angularDistance(first: number, second: number): number {
 // tolerance is required: endpoints computed by callers are often a rounding
 // step away from the exact value, so pass 0 only when exactness is intended.
 // A zero sweep includes only its start; either signed full turn includes all angles.
-export function isAngleInsideArc(
-    angle: number,
-    startAngle: number,
-    sweep: number,
-    angularTolerance: number,
-): boolean {
+export function isAngleInsideArc(query: ArcAngleQuery): boolean {
+    const { angle, startAngle, sweep, angularTolerance } = query
     const normalizedAngle = normalizeAngle(angle)
     const normalizedStart = normalizeAngle(startAngle)
 

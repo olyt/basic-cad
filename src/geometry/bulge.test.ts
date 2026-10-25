@@ -16,7 +16,7 @@ function expectPoint(actual: Vector2, expected: Vector2): void {
 
 describe('bulge conversion', () => {
     it.each([0, -0])('keeps straight segments for bulge %s', (bulge) => {
-        const line = bulgeToSegment(start, end, bulge)
+        const line = bulgeToSegment({ start, end, bulge })
 
         expect(line).toEqual(createLine(start, end))
         expect(segmentToBulge(line)).toEqual({ start, end, bulge: 0 })
@@ -30,9 +30,13 @@ describe('bulge conversion', () => {
         [1, 0],
         [2, -0.75],
     ])('converts signed minor, semicircle and major bulge %s', (bulge, y) => {
-        const arc = bulgeToSegment(start, end, bulge)
+        const arc = bulgeToSegment({ start, end, bulge })
         const converted = segmentToBulge(arc)
-        const reverse = bulgeToSegment(end, start, -bulge)
+        const reverse = bulgeToSegment({
+            start: end,
+            end: start,
+            bulge: -bulge,
+        })
 
         expect(arc).toMatchObject({
             type: 'arc',
@@ -55,13 +59,14 @@ describe('bulge conversion', () => {
     it.each([Math.PI / 2, -Math.PI / 2, (3 * Math.PI) / 2, (-3 * Math.PI) / 2])(
         'round-trips wraparound arcs with sweep %s',
         (sweep) => {
-            const arc = createArc({ x: 3, y: -4 }, 2, (7 * Math.PI) / 4, sweep)
+            const arc = createArc({
+                center: { x: 3, y: -4 },
+                radius: 2,
+                startAngle: (7 * Math.PI) / 4,
+                sweep,
+            })
             const converted = segmentToBulge(arc)
-            const restored = bulgeToSegment(
-                converted.start,
-                converted.end,
-                converted.bulge,
-            )
+            const restored = bulgeToSegment(converted)
 
             expect(restored.type).toBe('arc')
 
@@ -78,14 +83,15 @@ describe('bulge conversion', () => {
         'keeps the missing gap of a near-full sweep %s',
         (sign) => {
             const gap = 2 ** -50
-            const arc = createArc(start, 1, 0, sign * (FULL_TURN - gap))
+            const arc = createArc({
+                center: start,
+                radius: 1,
+                startAngle: 0,
+                sweep: sign * (FULL_TURN - gap),
+            })
             const points = segmentEndpoints(arc)
             const converted = segmentToBulge(arc)
-            const restored = bulgeToSegment(
-                converted.start,
-                converted.end,
-                converted.bulge,
-            )
+            const restored = bulgeToSegment(converted)
 
             expect(points.start).toEqual({ x: 1, y: 0 })
             expect(points.end.y).toBeCloseTo(-sign * gap, 28)
@@ -103,7 +109,7 @@ describe('bulge conversion', () => {
         [{ x: 1e7, y: 0 }, 2e-8],
         [{ x: 1e7, y: 0 }, -2e-8],
     ])('preserves shallow arc curvature: end %o, bulge %s', (arcEnd, bulge) => {
-        const arc = bulgeToSegment(start, arcEnd, bulge)
+        const arc = bulgeToSegment({ start, end: arcEnd, bulge })
 
         expect(arc.type).toBe('arc')
         expect(segmentToBulge(arc).bulge / bulge).toBeCloseTo(1, 14)
@@ -121,13 +127,14 @@ describe('bulge conversion', () => {
     it.each([4e-8, -4e-8, 4e-12, -4e-12])(
         'round-trips a small sweep %s without flattening',
         (sweep) => {
-            const original = createArc(start, 1, 0, sweep)
+            const original = createArc({
+                center: start,
+                radius: 1,
+                startAngle: 0,
+                sweep,
+            })
             const converted = segmentToBulge(original)
-            const restored = bulgeToSegment(
-                converted.start,
-                converted.end,
-                converted.bulge,
-            )
+            const restored = bulgeToSegment(converted)
 
             expect(restored.type).toBe('arc')
 
@@ -148,11 +155,11 @@ describe('bulge conversion', () => {
 
                 for (const bulge of [2.0000001e-8, 1e-7, 1e-6]) {
                     for (const sign of [1, -1]) {
-                        const arc = bulgeToSegment(
+                        const arc = bulgeToSegment({
                             start,
-                            chordEnd,
-                            sign * bulge,
-                        )
+                            end: chordEnd,
+                            bulge: sign * bulge,
+                        })
 
                         expect(arc.type).toBe('arc')
                     }
@@ -164,38 +171,54 @@ describe('bulge conversion', () => {
     it.each([NaN, Infinity, -Infinity])(
         'rejects non-finite bulge %s',
         (bulge) => {
-            expect(() => bulgeToSegment(start, end, bulge)).toThrow(RangeError)
+            expect(() => bulgeToSegment({ start, end, bulge })).toThrow(
+                RangeError,
+            )
         },
     )
 
     it.each([
-        () => bulgeToSegment(start, start, 1),
-        () => bulgeToSegment(start, end, 1e300),
-        () => bulgeToSegment(start, { x: 1, y: 0 }, 1e-12),
-        () => bulgeToSegment(start, { x: 1, y: 0 }, 1e-16),
-        () => bulgeToSegment(start, { x: 1000, y: 0 }, 1e-10),
-        () => bulgeToSegment(start, end, 1e-300),
-        () => bulgeToSegment(start, { x: 1e-300, y: 0 }, 1e-300),
+        () => bulgeToSegment({ start, end: start, bulge: 1 }),
+        () => bulgeToSegment({ start, end, bulge: 1e300 }),
+        () => bulgeToSegment({ start, end: { x: 1, y: 0 }, bulge: 1e-12 }),
+        () => bulgeToSegment({ start, end: { x: 1, y: 0 }, bulge: 1e-16 }),
+        () => bulgeToSegment({ start, end: { x: 1000, y: 0 }, bulge: 1e-10 }),
+        () => bulgeToSegment({ start, end, bulge: 1e-300 }),
         () =>
-            bulgeToSegment(
-                { x: MAX_COORDINATE, y: 0 },
-                { x: MAX_COORDINATE, y: 2 },
-                -0.5,
+            bulgeToSegment({ start, end: { x: 1e-300, y: 0 }, bulge: 1e-300 }),
+        () =>
+            bulgeToSegment({
+                start: { x: MAX_COORDINATE, y: 0 },
+                end: { x: MAX_COORDINATE, y: 2 },
+                bulge: -0.5,
+            }),
+        () =>
+            segmentToBulge(
+                createArc({
+                    center: { x: MAX_COORDINATE, y: 0 },
+                    radius: 1,
+                    startAngle: 0,
+                    sweep: Math.PI,
+                }),
             ),
         () =>
             segmentToBulge(
-                createArc({ x: MAX_COORDINATE, y: 0 }, 1, 0, Math.PI),
+                createArc({
+                    center: { x: MAX_COORDINATE, y: MAX_COORDINATE },
+                    radius: 1,
+                    startAngle: 0,
+                    sweep: 1e-18,
+                }),
             ),
         () =>
             segmentToBulge(
-                createArc(
-                    { x: MAX_COORDINATE, y: MAX_COORDINATE },
-                    1,
-                    0,
-                    1e-18,
-                ),
+                createArc({
+                    center: start,
+                    radius: 1,
+                    startAngle: 0,
+                    sweep: Number.MIN_VALUE,
+                }),
             ),
-        () => segmentToBulge(createArc(start, 1, 0, Number.MIN_VALUE)),
     ])('rejects unrepresentable conversion %#', (convert) => {
         expect(convert).toThrow(RangeError)
     })
@@ -213,17 +236,19 @@ describe('bulge conversion properties (fixed seed)', () => {
     it('round-trips random arcs through their bulge, keeping the sweep', () => {
         const random = seededRandom(1)
         const failures = Array.from({ length: 5000 }, () => {
-            const arc = createArc(
-                {
+            const arc = createArc({
+                center: {
                     x: random.between(-1e6, 1e6),
                     y: random.between(-1e6, 1e6),
                 },
-                random.magnitude(-3, 6),
-                random.between(-10, 10),
-                random.sign() * random.between(1e-6, FULL_TURN - 1e-6),
-            )
+                radius: random.magnitude(-3, 6),
+                startAngle: random.between(-10, 10),
+                sweep: random.sign() * random.between(1e-6, FULL_TURN - 1e-6),
+            })
             const { start: from, end: to, bulge } = segmentToBulge(arc)
-            const restored = attempt(() => bulgeToSegment(from, to, bulge))
+            const restored = attempt(() =>
+                bulgeToSegment({ start: from, end: to, bulge }),
+            )
 
             return { arc, restored }
         }).filter(
@@ -257,7 +282,9 @@ describe('bulge conversion properties (fixed seed)', () => {
                 y: from.y + chord * Math.sin(direction),
             }
             const bulge = random.sign() * random.magnitude(-15, -3)
-            const actual = outcome(() => bulgeToSegment(from, to, bulge))
+            const actual = outcome(() =>
+                bulgeToSegment({ start: from, end: to, bulge }),
+            )
             const allowed =
                 Math.abs(bulge) >= 1e-7 ? ['arc'] : ['arc', 'rejected']
 

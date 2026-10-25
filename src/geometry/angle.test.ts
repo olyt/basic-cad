@@ -45,39 +45,56 @@ describe('angle normalization', () => {
 
 describe('directed signed sweeps', () => {
     it('uses positive counterclockwise and negative clockwise sweeps', () => {
-        expect(signedSweep(0, quarterTurn, 'counterclockwise')).toBe(
-            quarterTurn,
-        )
-        expect(signedSweep(0, quarterTurn, 'clockwise')).toBe(-3 * quarterTurn)
-        expect(signedSweep(quarterTurn, 0, 'counterclockwise')).toBe(
-            3 * quarterTurn,
-        )
-        expect(signedSweep(quarterTurn, 0, 'clockwise')).toBe(-quarterTurn)
+        expect(
+            signedSweep(
+                { startAngle: 0, endAngle: quarterTurn },
+                'counterclockwise',
+            ),
+        ).toBe(quarterTurn)
+        expect(
+            signedSweep({ startAngle: 0, endAngle: quarterTurn }, 'clockwise'),
+        ).toBe(-3 * quarterTurn)
+        expect(
+            signedSweep(
+                { startAngle: quarterTurn, endAngle: 0 },
+                'counterclockwise',
+            ),
+        ).toBe(3 * quarterTurn)
+        expect(
+            signedSweep({ startAngle: quarterTurn, endAngle: 0 }, 'clockwise'),
+        ).toBe(-quarterTurn)
     })
 
     it('crosses zero in either direction', () => {
         const start = 3.5 * quarterTurn
         const end = 0.5 * quarterTurn
 
-        expect(signedSweep(start, end, 'counterclockwise')).toBeCloseTo(
-            quarterTurn,
-            14,
-        )
-        expect(signedSweep(end, start, 'clockwise')).toBeCloseTo(
-            -quarterTurn,
-            14,
-        )
+        expect(
+            signedSweep(
+                { startAngle: start, endAngle: end },
+                'counterclockwise',
+            ),
+        ).toBeCloseTo(quarterTurn, 14)
+        expect(
+            signedSweep({ startAngle: end, endAngle: start }, 'clockwise'),
+        ).toBeCloseTo(-quarterTurn, 14)
     })
 
     it.each<AngleDirection>(['clockwise', 'counterclockwise'])(
         'uses zero for identical endpoints in direction %s',
         (direction) => {
-            expect(signedSweep(quarterTurn, quarterTurn, direction)).toBe(0)
-            expect(signedSweep(0, FULL_TURN, direction)).toBe(0)
+            expect(
+                signedSweep(
+                    { startAngle: quarterTurn, endAngle: quarterTurn },
+                    direction,
+                ),
+            ).toBe(0)
+            expect(
+                signedSweep({ startAngle: 0, endAngle: FULL_TURN }, direction),
+            ).toBe(0)
 
             const sweep = signedSweep(
-                Number.MAX_VALUE,
-                -Number.MAX_VALUE,
+                { startAngle: Number.MAX_VALUE, endAngle: -Number.MAX_VALUE },
                 direction,
             )
 
@@ -89,8 +106,14 @@ describe('directed signed sweeps', () => {
     it('keeps distinct endpoints a nearly full turn apart', () => {
         const beforeOne = 1 - Number.EPSILON / 2
         const afterOne = 1 + Number.EPSILON
-        const counterclockwise = signedSweep(1, beforeOne, 'counterclockwise')
-        const clockwise = signedSweep(1, afterOne, 'clockwise')
+        const counterclockwise = signedSweep(
+            { startAngle: 1, endAngle: beforeOne },
+            'counterclockwise',
+        )
+        const clockwise = signedSweep(
+            { startAngle: 1, endAngle: afterOne },
+            'clockwise',
+        )
 
         // Within 1e-14 of a full turn, but never zero and never a full turn.
         expect(counterclockwise).toBeGreaterThan(FULL_TURN - 1e-14)
@@ -102,8 +125,12 @@ describe('directed signed sweeps', () => {
     it('rejects unsupported directions at runtime', () => {
         const sideways = 'sideways' as AngleDirection
 
-        expect(() => signedSweep(0, 1, sideways)).toThrow(RangeError)
-        expect(() => signedSweep(1, 1, sideways)).toThrow(RangeError)
+        expect(() =>
+            signedSweep({ startAngle: 0, endAngle: 1 }, sideways),
+        ).toThrow(RangeError)
+        expect(() =>
+            signedSweep({ startAngle: 1, endAngle: 1 }, sideways),
+        ).toThrow(RangeError)
     })
 })
 
@@ -115,45 +142,112 @@ describe('angle inclusion in arcs', () => {
             const end = sign > 0 ? 0.5 * quarterTurn : 3.5 * quarterTurn
             const sweep = sign * quarterTurn
 
-            expect(isAngleInsideArc(start, start, sweep, exact)).toBe(true)
-            expect(isAngleInsideArc(end, start, sweep, exact)).toBe(true)
-            expect(isAngleInsideArc(0, start, sweep, exact)).toBe(true)
-            expect(isAngleInsideArc(quarterTurn, start, sweep, exact)).toBe(
-                false,
-            )
-            expect(isAngleInsideArc(3 * quarterTurn, start, sweep, exact)).toBe(
-                false,
-            )
+            expect(
+                isAngleInsideArc({
+                    angle: start,
+                    startAngle: start,
+                    sweep,
+                    angularTolerance: exact,
+                }),
+            ).toBe(true)
+            expect(
+                isAngleInsideArc({
+                    angle: end,
+                    startAngle: start,
+                    sweep,
+                    angularTolerance: exact,
+                }),
+            ).toBe(true)
+            expect(
+                isAngleInsideArc({
+                    angle: 0,
+                    startAngle: start,
+                    sweep,
+                    angularTolerance: exact,
+                }),
+            ).toBe(true)
+            expect(
+                isAngleInsideArc({
+                    angle: quarterTurn,
+                    startAngle: start,
+                    sweep,
+                    angularTolerance: exact,
+                }),
+            ).toBe(false)
+            expect(
+                isAngleInsideArc({
+                    angle: 3 * quarterTurn,
+                    startAngle: start,
+                    sweep,
+                    angularTolerance: exact,
+                }),
+            ).toBe(false)
         },
     )
 
     it('includes major arcs without including their complementary gap', () => {
         for (const angle of [Math.PI, 3 * quarterTurn]) {
             expect(
-                isAngleInsideArc(angle, quarterTurn, 3 * quarterTurn, exact),
+                isAngleInsideArc({
+                    angle,
+                    startAngle: quarterTurn,
+                    sweep: 3 * quarterTurn,
+                    angularTolerance: exact,
+                }),
             ).toBe(true)
-            expect(isAngleInsideArc(angle, 0, -3 * quarterTurn, exact)).toBe(
-                true,
-            )
+            expect(
+                isAngleInsideArc({
+                    angle,
+                    startAngle: 0,
+                    sweep: -3 * quarterTurn,
+                    angularTolerance: exact,
+                }),
+            ).toBe(true)
         }
 
         expect(
-            isAngleInsideArc(
-                quarterTurn / 2,
-                quarterTurn,
-                3 * quarterTurn,
-                exact,
-            ),
+            isAngleInsideArc({
+                angle: quarterTurn / 2,
+                startAngle: quarterTurn,
+                sweep: 3 * quarterTurn,
+                angularTolerance: exact,
+            }),
         ).toBe(false)
         expect(
-            isAngleInsideArc(quarterTurn / 2, 0, -3 * quarterTurn, exact),
+            isAngleInsideArc({
+                angle: quarterTurn / 2,
+                startAngle: 0,
+                sweep: -3 * quarterTurn,
+                angularTolerance: exact,
+            }),
         ).toBe(false)
     })
 
     it('includes a computed endpoint despite subtraction roundoff', () => {
-        expect(isAngleInsideArc(0.1 + 0.2, 0.1, 0.2, exact)).toBe(true)
-        expect(isAngleInsideArc(0.3 - 0.2, 0.3, -0.2, exact)).toBe(true)
-        expect(isAngleInsideArc(0.300001, 0.1, 0.2, exact)).toBe(false)
+        expect(
+            isAngleInsideArc({
+                angle: 0.1 + 0.2,
+                startAngle: 0.1,
+                sweep: 0.2,
+                angularTolerance: exact,
+            }),
+        ).toBe(true)
+        expect(
+            isAngleInsideArc({
+                angle: 0.3 - 0.2,
+                startAngle: 0.3,
+                sweep: -0.2,
+                angularTolerance: exact,
+            }),
+        ).toBe(true)
+        expect(
+            isAngleInsideArc({
+                angle: 0.300001,
+                startAngle: 0.1,
+                sweep: 0.2,
+                angularTolerance: exact,
+            }),
+        ).toBe(false)
     })
 
     it.each([
@@ -163,65 +257,177 @@ describe('angle inclusion in arcs', () => {
     ])(
         'includes the computed end of an arc from unnormalized start %s within a tolerance',
         (start, sweep) => {
-            expect(isAngleInsideArc(start + sweep, start, sweep, 1e-12)).toBe(
-                true,
-            )
+            expect(
+                isAngleInsideArc({
+                    angle: start + sweep,
+                    startAngle: start,
+                    sweep,
+                    angularTolerance: 1e-12,
+                }),
+            ).toBe(true)
         },
     )
 
     it('requires an explicit tolerance', () => {
-        // @ts-expect-error Callers must choose a tolerance, even if it is zero.
-        expect(() => isAngleInsideArc(0, 0, quarterTurn)).toThrow(RangeError)
+        expect(() => {
+            // @ts-expect-error Callers must choose a tolerance, even if it is zero.
+            isAngleInsideArc({ angle: 0, startAngle: 0, sweep: quarterTurn })
+        }).toThrow(RangeError)
     })
 
     it('excludes distinct angles immediately outside the start', () => {
-        expect(isAngleInsideArc(Number.MIN_VALUE, 0, -quarterTurn, exact)).toBe(
-            false,
-        )
-        expect(isAngleInsideArc(0, Number.MIN_VALUE, quarterTurn, exact)).toBe(
-            false,
-        )
+        expect(
+            isAngleInsideArc({
+                angle: Number.MIN_VALUE,
+                startAngle: 0,
+                sweep: -quarterTurn,
+                angularTolerance: exact,
+            }),
+        ).toBe(false)
+        expect(
+            isAngleInsideArc({
+                angle: 0,
+                startAngle: Number.MIN_VALUE,
+                sweep: quarterTurn,
+                angularTolerance: exact,
+            }),
+        ).toBe(false)
     })
 
     it('distinguishes a zero sweep from a full circle', () => {
-        expect(isAngleInsideArc(FULL_TURN, 0, 0, exact)).toBe(true)
-        expect(isAngleInsideArc(Number.MIN_VALUE, 0, -0, exact)).toBe(false)
-        expect(isAngleInsideArc(0, Number.MIN_VALUE, 0, exact)).toBe(false)
+        expect(
+            isAngleInsideArc({
+                angle: FULL_TURN,
+                startAngle: 0,
+                sweep: 0,
+                angularTolerance: exact,
+            }),
+        ).toBe(true)
+        expect(
+            isAngleInsideArc({
+                angle: Number.MIN_VALUE,
+                startAngle: 0,
+                sweep: -0,
+                angularTolerance: exact,
+            }),
+        ).toBe(false)
+        expect(
+            isAngleInsideArc({
+                angle: 0,
+                startAngle: Number.MIN_VALUE,
+                sweep: 0,
+                angularTolerance: exact,
+            }),
+        ).toBe(false)
 
         for (const sweep of [FULL_TURN, -FULL_TURN]) {
             for (const angle of [0, quarterTurn, Math.PI, Number.MAX_VALUE]) {
                 expect(
-                    isAngleInsideArc(angle, -Number.MAX_VALUE, sweep, exact),
+                    isAngleInsideArc({
+                        angle,
+                        startAngle: -Number.MAX_VALUE,
+                        sweep,
+                        angularTolerance: exact,
+                    }),
                 ).toBe(true)
             }
         }
     })
 
     it('uses an inclusive explicit radians tolerance at either endpoint', () => {
-        expect(isAngleInsideArc(0.375, 0.5, 0.5, 0.125)).toBe(true)
-        expect(isAngleInsideArc(1.125, 0.5, 0.5, 0.125)).toBe(true)
-        expect(isAngleInsideArc(0.374, 0.5, 0.5, 0.125)).toBe(false)
-        expect(isAngleInsideArc(1.126, 0.5, 0.5, 0.125)).toBe(false)
-        expect(isAngleInsideArc(-0.0625, 0, quarterTurn, 0.125)).toBe(true)
-        expect(isAngleInsideArc(0.0625, 0, -quarterTurn, 0.125)).toBe(true)
-        expect(isAngleInsideArc(-0.1875, 0, quarterTurn, 0.125)).toBe(false)
-        expect(isAngleInsideArc(-0.0625, 0, quarterTurn, exact)).toBe(false)
-        expect(isAngleInsideArc(-0.0625, 0, 0, 0.125)).toBe(true)
+        expect(
+            isAngleInsideArc({
+                angle: 0.375,
+                startAngle: 0.5,
+                sweep: 0.5,
+                angularTolerance: 0.125,
+            }),
+        ).toBe(true)
+        expect(
+            isAngleInsideArc({
+                angle: 1.125,
+                startAngle: 0.5,
+                sweep: 0.5,
+                angularTolerance: 0.125,
+            }),
+        ).toBe(true)
+        expect(
+            isAngleInsideArc({
+                angle: 0.374,
+                startAngle: 0.5,
+                sweep: 0.5,
+                angularTolerance: 0.125,
+            }),
+        ).toBe(false)
+        expect(
+            isAngleInsideArc({
+                angle: 1.126,
+                startAngle: 0.5,
+                sweep: 0.5,
+                angularTolerance: 0.125,
+            }),
+        ).toBe(false)
+        expect(
+            isAngleInsideArc({
+                angle: -0.0625,
+                startAngle: 0,
+                sweep: quarterTurn,
+                angularTolerance: 0.125,
+            }),
+        ).toBe(true)
+        expect(
+            isAngleInsideArc({
+                angle: 0.0625,
+                startAngle: 0,
+                sweep: -quarterTurn,
+                angularTolerance: 0.125,
+            }),
+        ).toBe(true)
+        expect(
+            isAngleInsideArc({
+                angle: -0.1875,
+                startAngle: 0,
+                sweep: quarterTurn,
+                angularTolerance: 0.125,
+            }),
+        ).toBe(false)
+        expect(
+            isAngleInsideArc({
+                angle: -0.0625,
+                startAngle: 0,
+                sweep: quarterTurn,
+                angularTolerance: exact,
+            }),
+        ).toBe(false)
+        expect(
+            isAngleInsideArc({
+                angle: -0.0625,
+                startAngle: 0,
+                sweep: 0,
+                angularTolerance: 0.125,
+            }),
+        ).toBe(true)
     })
 
     it.each([
-        [0, 1e-17, 0],
-        [1e-17, 0, -1],
-        [0, 1e-17, 1],
-        [1e-17, 0, 0],
-        [2e-17, 0, 1e-17],
-        [0, 2e-17, -1e-17],
+        { angle: 0, startAngle: 1e-17, sweep: 0 },
+        { angle: 1e-17, startAngle: 0, sweep: -1 },
+        { angle: 0, startAngle: 1e-17, sweep: 1 },
+        { angle: 1e-17, startAngle: 0, sweep: 0 },
+        { angle: 2e-17, startAngle: 0, sweep: 1e-17 },
+        { angle: 0, startAngle: 2e-17, sweep: -1e-17 },
     ])(
-        'respects a tiny boundary gap for angle %s, start %s and sweep %s',
-        (angle, start, sweep) => {
-            expect(isAngleInsideArc(angle, start, sweep, 1e-18)).toBe(false)
-            expect(isAngleInsideArc(angle, start, sweep, 1e-17)).toBe(true)
-            expect(isAngleInsideArc(angle, start, sweep, 2e-17)).toBe(true)
+        'respects a tiny boundary gap for angle $angle, start $startAngle and sweep $sweep',
+        (arc) => {
+            expect(isAngleInsideArc({ ...arc, angularTolerance: 1e-18 })).toBe(
+                false,
+            )
+            expect(isAngleInsideArc({ ...arc, angularTolerance: 1e-17 })).toBe(
+                true,
+            )
+            expect(isAngleInsideArc({ ...arc, angularTolerance: 2e-17 })).toBe(
+                true,
+            )
         },
     )
 
@@ -229,9 +435,14 @@ describe('angle inclusion in arcs', () => {
         'rejects invalid tolerance %s',
         (tolerance) => {
             for (const sweep of [0, quarterTurn, FULL_TURN]) {
-                expect(() => isAngleInsideArc(0, 0, sweep, tolerance)).toThrow(
-                    RangeError,
-                )
+                expect(() =>
+                    isAngleInsideArc({
+                        angle: 0,
+                        startAngle: 0,
+                        sweep,
+                        angularTolerance: tolerance,
+                    }),
+                ).toThrow(RangeError)
             }
         },
     )
@@ -239,9 +450,14 @@ describe('angle inclusion in arcs', () => {
     it.each([FULL_TURN + 0.001, -FULL_TURN - 0.001])(
         'rejects oversized sweep %s',
         (sweep) => {
-            expect(() => isAngleInsideArc(0, 0, sweep, exact)).toThrow(
-                RangeError,
-            )
+            expect(() =>
+                isAngleInsideArc({
+                    angle: 0,
+                    startAngle: 0,
+                    sweep,
+                    angularTolerance: exact,
+                }),
+            ).toThrow(RangeError)
         },
     )
 })
@@ -251,19 +467,39 @@ describe('finite angle validation', () => {
         'rejects non-finite input %s',
         (angle) => {
             expect(() => normalizeAngle(angle)).toThrow(RangeError)
-            expect(() => signedSweep(angle, 0, 'clockwise')).toThrow(RangeError)
-            expect(() => signedSweep(0, angle, 'counterclockwise')).toThrow(
-                RangeError,
-            )
-            expect(() => isAngleInsideArc(angle, 0, FULL_TURN, exact)).toThrow(
-                RangeError,
-            )
-            expect(() => isAngleInsideArc(0, angle, FULL_TURN, exact)).toThrow(
-                RangeError,
-            )
-            expect(() => isAngleInsideArc(0, 0, angle, exact)).toThrow(
-                RangeError,
-            )
+            expect(() =>
+                signedSweep({ startAngle: angle, endAngle: 0 }, 'clockwise'),
+            ).toThrow(RangeError)
+            expect(() =>
+                signedSweep(
+                    { startAngle: 0, endAngle: angle },
+                    'counterclockwise',
+                ),
+            ).toThrow(RangeError)
+            expect(() =>
+                isAngleInsideArc({
+                    angle,
+                    startAngle: 0,
+                    sweep: FULL_TURN,
+                    angularTolerance: exact,
+                }),
+            ).toThrow(RangeError)
+            expect(() =>
+                isAngleInsideArc({
+                    angle: 0,
+                    startAngle: angle,
+                    sweep: FULL_TURN,
+                    angularTolerance: exact,
+                }),
+            ).toThrow(RangeError)
+            expect(() =>
+                isAngleInsideArc({
+                    angle: 0,
+                    startAngle: 0,
+                    sweep: angle,
+                    angularTolerance: exact,
+                }),
+            ).toThrow(RangeError)
         },
     )
 })
@@ -291,8 +527,18 @@ describe('arc membership properties (fixed seed)', () => {
     it('never excludes an included angle when the tolerance grows', () => {
         const failures = cases.filter(
             ({ angle, start, sweep }) =>
-                isAngleInsideArc(angle, start, sweep, tolerance) &&
-                !isAngleInsideArc(angle, start, sweep, 10 * tolerance),
+                isAngleInsideArc({
+                    angle,
+                    startAngle: start,
+                    sweep,
+                    angularTolerance: tolerance,
+                }) &&
+                !isAngleInsideArc({
+                    angle,
+                    startAngle: start,
+                    sweep,
+                    angularTolerance: 10 * tolerance,
+                }),
         )
 
         expect(failures).toEqual([])
@@ -301,8 +547,18 @@ describe('arc membership properties (fixed seed)', () => {
     it('gives the same answer for an arc read from its other end', () => {
         const failures = cases.filter(
             ({ angle, start, sweep }) =>
-                isAngleInsideArc(angle, start, sweep, tolerance) !==
-                isAngleInsideArc(angle, start + sweep, -sweep, tolerance),
+                isAngleInsideArc({
+                    angle,
+                    startAngle: start,
+                    sweep,
+                    angularTolerance: tolerance,
+                }) !==
+                isAngleInsideArc({
+                    angle,
+                    startAngle: start + sweep,
+                    sweep: -sweep,
+                    angularTolerance: tolerance,
+                }),
         )
 
         expect(failures).toEqual([])
@@ -318,8 +574,18 @@ describe('arc membership properties (fixed seed)', () => {
 
             return (
                 !nearEndpoint &&
-                isAngleInsideArc(angle, start, sweep, tolerance) ===
-                    isAngleInsideArc(angle, end, complement, tolerance)
+                isAngleInsideArc({
+                    angle,
+                    startAngle: start,
+                    sweep,
+                    angularTolerance: tolerance,
+                }) ===
+                    isAngleInsideArc({
+                        angle,
+                        startAngle: end,
+                        sweep: complement,
+                        angularTolerance: tolerance,
+                    })
             )
         })
 
@@ -328,11 +594,24 @@ describe('arc membership properties (fixed seed)', () => {
 
     it('includes both ends of every sweep from signedSweep', () => {
         const failures = cases.filter(({ start, end, direction }) => {
-            const sweep = signedSweep(start, end, direction)
+            const sweep = signedSweep(
+                { startAngle: start, endAngle: end },
+                direction,
+            )
 
             return (
-                !isAngleInsideArc(end, start, sweep, tolerance) ||
-                !isAngleInsideArc(start, start, sweep, exact)
+                !isAngleInsideArc({
+                    angle: end,
+                    startAngle: start,
+                    sweep,
+                    angularTolerance: tolerance,
+                }) ||
+                !isAngleInsideArc({
+                    angle: start,
+                    startAngle: start,
+                    sweep,
+                    angularTolerance: exact,
+                })
             )
         })
 

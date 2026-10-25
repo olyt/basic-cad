@@ -58,12 +58,12 @@ describe('analytic curve bounds', () => {
         'includes crossed cardinal %s in both directions',
         (index, expected) => {
             for (const sign of [1, -1]) {
-                const arc = createArc(
-                    origin,
-                    2,
-                    index * quarter - (sign * quarter) / 2,
-                    sign * quarter,
-                )
+                const arc = createArc({
+                    center: origin,
+                    radius: 2,
+                    startAngle: index * quarter - (sign * quarter) / 2,
+                    sweep: sign * quarter,
+                })
 
                 expectBounds(curveBounds(arc), expected)
             }
@@ -95,12 +95,12 @@ describe('analytic curve bounds', () => {
 
                 expect(
                     curveBounds(
-                        createArc(
-                            origin,
-                            MAX_COORDINATE,
-                            start,
-                            sign * quarter,
-                        ),
+                        createArc({
+                            center: origin,
+                            radius: MAX_COORDINATE,
+                            startAngle: start,
+                            sweep: sign * quarter,
+                        }),
                     ),
                 ).toEqual(expected)
             }
@@ -113,7 +113,14 @@ describe('analytic curve bounds', () => {
             const start = sign > 0 ? quarter / 2 : (7 * quarter) / 2
 
             expectBounds(
-                curveBounds(createArc(origin, 2, start, sign * 3 * quarter)),
+                curveBounds(
+                    createArc({
+                        center: origin,
+                        radius: 2,
+                        startAngle: start,
+                        sweep: sign * 3 * quarter,
+                    }),
+                ),
                 {
                     min: { x: -2, y: -2 },
                     max: { x: root, y: 2 },
@@ -124,7 +131,14 @@ describe('analytic curve bounds', () => {
 
     it.each([1, -1])('bounds near-full arcs with direction %s', (sign) => {
         expect(
-            curveBounds(createArc(origin, 1, 0, sign * (FULL_TURN - 2 ** -50))),
+            curveBounds(
+                createArc({
+                    center: origin,
+                    radius: 1,
+                    startAngle: 0,
+                    sweep: sign * (FULL_TURN - 2 ** -50),
+                }),
+            ),
         ).toEqual({
             min: { x: -1, y: -1 },
             max: { x: 1, y: 1 },
@@ -132,9 +146,21 @@ describe('analytic curve bounds', () => {
     })
 
     it('preserves tiny sweeps at a cardinal start, including subnormal angles', () => {
-        const tiny = curveBounds(createArc(origin, 1, quarter, 1e-20))
+        const tiny = curveBounds(
+            createArc({
+                center: origin,
+                radius: 1,
+                startAngle: quarter,
+                sweep: 1e-20,
+            }),
+        )
         const subnormal = curveBounds(
-            createArc(origin, MAX_COORDINATE, 0, Number.MIN_VALUE),
+            createArc({
+                center: origin,
+                radius: MAX_COORDINATE,
+                startAngle: 0,
+                sweep: Number.MIN_VALUE,
+            }),
         )
 
         expect(tiny).toEqual({ min: { x: -1e-20, y: 1 }, max: { x: 0, y: 1 } })
@@ -143,16 +169,22 @@ describe('analytic curve bounds', () => {
     })
 
     it('unions all mixed polyline segments for open and closed geometry', () => {
-        const arc = createArc({ x: 3, y: -4 }, 2, 0, Math.PI)
+        const arc = createArc({
+            center: { x: 3, y: -4 },
+            radius: 2,
+            startAngle: 0,
+            sweep: Math.PI,
+        })
         const end = { x: 1, y: -4 }
         const open = createPolyline(
-            [arc, createLine(end, { x: -3, y: -7 })],
-            false,
+            {
+                segments: [arc, createLine(end, { x: -3, y: -7 })],
+                closed: false,
+            },
             { distance: 0 },
         )
         const closed = createPolyline(
-            [arc, createLine(end, { x: 5, y: -4 })],
-            true,
+            { segments: [arc, createLine(end, { x: 5, y: -4 })], closed: true },
             { distance: 0 },
         )
 
@@ -194,15 +226,15 @@ describe('arc bound properties (fixed seed)', () => {
     it('contains every point of random arcs and touches each side', () => {
         const random = seededRandom(3)
         const failures = Array.from({ length: 1000 }, () => {
-            const arc = createArc(
-                {
+            const arc = createArc({
+                center: {
                     x: random.between(-5e4, 5e4),
                     y: random.between(-5e4, 5e4),
                 },
-                random.magnitude(-2, 4),
-                random.between(-10, 10),
-                random.sign() * random.between(1e-9, FULL_TURN - 1e-9),
-            )
+                radius: random.magnitude(-2, 4),
+                startAngle: random.between(-10, 10),
+                sweep: random.sign() * random.between(1e-9, FULL_TURN - 1e-9),
+            })
             const box = curveBounds(arc)
             const points = sampleArc(arc, 1000)
             const xs = points.map((point) => point.x)

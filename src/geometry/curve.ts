@@ -28,6 +28,8 @@ export interface Arc extends CurveOf<'arc'> {
     readonly sweep: number
 }
 
+export type ArcInput = Omit<Arc, 'type'>
+
 export type PolylineSegment = Line | Arc
 
 export interface Polyline extends CurveOf<'polyline'> {
@@ -54,8 +56,16 @@ function supportedPoint(point: Vector2): Vector2 {
     return copy
 }
 
+function isSupportedRadius(radius: number): boolean {
+    return Number.isFinite(radius) && radius > 0 && radius <= MAX_COORDINATE
+}
+
+function isPartialSweep(sweep: number): boolean {
+    return Number.isFinite(sweep) && sweep !== 0 && Math.abs(sweep) < FULL_TURN
+}
+
 function assertSupportedRadius(radius: number): void {
-    if (!Number.isFinite(radius) || radius <= 0 || radius > MAX_COORDINATE) {
+    if (!isSupportedRadius(radius)) {
         throw new RangeError(
             `Radius must be positive and at most ${MAX_COORDINATE.toExponential()} drawing units.`,
         )
@@ -83,19 +93,15 @@ export function createCircle(center: Vector2, radius: number): Circle {
     }
 }
 
-export function createArc(
-    center: Vector2,
-    radius: number,
-    startAngle: number,
-    sweep: number,
-): Arc {
+export function createArc({
+    center,
+    radius,
+    startAngle,
+    sweep,
+}: ArcInput): Arc {
     assertSupportedRadius(radius)
 
-    if (
-        !Number.isFinite(sweep) ||
-        sweep === 0 ||
-        Math.abs(sweep) >= FULL_TURN
-    ) {
+    if (!isPartialSweep(sweep)) {
         throw new RangeError(
             'Arc sweep must be finite, nonzero and smaller than a full turn. Use a circle for a full turn.',
         )

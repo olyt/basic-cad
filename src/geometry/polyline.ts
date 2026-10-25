@@ -1,4 +1,4 @@
-import { type Polyline, type PolylineSegment } from './curve'
+import { type Polyline } from './curve'
 import { copySegment, segmentEndpoints } from './segment'
 import {
     createModelTolerance,
@@ -6,9 +6,10 @@ import {
     type ModelTolerance,
 } from './tolerance'
 
+export type PolylineInput = Omit<Polyline, 'type'>
+
 export function createPolyline(
-    segments: readonly PolylineSegment[],
-    closed: boolean,
+    { segments, closed }: PolylineInput,
     tolerance: ModelTolerance,
 ): Polyline {
     const checkedTolerance = createModelTolerance(tolerance.distance)
@@ -22,10 +23,12 @@ export function createPolyline(
     const first = endpoints[0]
     const last = endpoints.at(-1)
 
-    if (!first || !last || (closed && copies.length < 2)) {
-        throw new RangeError(
-            'A polyline needs at least one segment, or two when closed.',
-        )
+    if (!first || !last) {
+        throw new RangeError('A polyline needs at least one segment.')
+    }
+
+    if (closed && copies.length < 2) {
+        throw new RangeError('A closed polyline needs at least two segments.')
     }
 
     for (const [index, current] of endpoints.entries()) {

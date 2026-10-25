@@ -6,8 +6,20 @@ import sonarjs from 'eslint-plugin-sonarjs'
 import vue from 'eslint-plugin-vue'
 import tseslint from 'typescript-eslint'
 
+// An if condition with three or more expressions, counting negated and nested
+// groups, must move into a well-named function or variable.
+const complexIfCondition = {
+    selector:
+        'IfStatement > LogicalExpression.test LogicalExpression, IfStatement > .test LogicalExpression LogicalExpression',
+    message:
+        'Extract an if condition with three or more expressions into a well-named function or variable.',
+}
+
 export default defineConfig([
     globalIgnores(['dist/**', 'coverage/**', 'node_modules/**', '**/.venv/**']),
+    {
+        linterOptions: { reportUnusedDisableDirectives: 'error' },
+    },
     js.configs.recommended,
     tseslint.configs.recommended,
     vue.configs['flat/recommended'],
@@ -18,6 +30,11 @@ export default defineConfig([
                 parser: tseslint.parser,
             },
         },
+    },
+    {
+        // The pure-module block below repeats this restriction, because a later
+        // no-restricted-syntax setting replaces this one for those files.
+        rules: { 'no-restricted-syntax': ['error', complexIfCondition] },
     },
     {
         files: ['src/{geometry,document,commands,dxf-io}/**/*.ts'],
@@ -51,6 +68,7 @@ export default defineConfig([
                     message:
                         'Use static ES imports in pure CAD modules so dependency boundaries can be checked.',
                 },
+                complexIfCondition,
             ],
         },
     },
@@ -82,6 +100,11 @@ export default defineConfig([
             ],
             curly: ['error', 'all'],
             'no-nested-ternary': 'error',
+            // Two parameters are the norm. A third warns, and since lint allows no
+            // warnings, needs `// eslint-disable-next-line max-params -- <why>`.
+            // Four or more are always an error.
+            'max-params': ['warn', 2],
+            '@typescript-eslint/max-params': ['error', { max: 3 }],
             eqeqeq: ['error', 'always'],
         },
     },
