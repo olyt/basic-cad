@@ -1,10 +1,8 @@
 import { FULL_TURN, normalizeAngle } from './angle'
 import { createVector2, type Vector2 } from './vector'
 
-// Every curve kind the geometry kernel supports.
 export type CurveType = 'line' | 'circle' | 'arc' | 'polyline'
 
-// Restricts each curve's tag to the list above.
 interface CurveOf<T extends CurveType> {
     readonly type: T
 }

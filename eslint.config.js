@@ -6,8 +6,6 @@ import sonarjs from 'eslint-plugin-sonarjs'
 import vue from 'eslint-plugin-vue'
 import tseslint from 'typescript-eslint'
 
-// An if condition with three or more expressions, counting negated and nested
-// groups, must move into a well-named function or variable.
 const complexIfCondition = {
     selector:
         'IfStatement > LogicalExpression.test LogicalExpression, IfStatement > .test LogicalExpression LogicalExpression',
@@ -100,9 +98,7 @@ export default defineConfig([
             ],
             curly: ['error', 'all'],
             'no-nested-ternary': 'error',
-            // Two parameters are the norm. A third warns, and since lint allows no
-            // warnings, needs `// eslint-disable-next-line max-params -- <why>`.
-            // Four or more are always an error.
+            // A third parameter needs `eslint-disable-next-line max-params -- <why>`.
             'max-params': ['warn', 2],
             '@typescript-eslint/max-params': ['error', { max: 3 }],
             eqeqeq: ['error', 'always'],

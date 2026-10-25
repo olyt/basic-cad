@@ -115,7 +115,6 @@ describe('directed signed sweeps', () => {
             'clockwise',
         )
 
-        // Within 1e-14 of a full turn, but never zero and never a full turn.
         expect(counterclockwise).toBeGreaterThan(FULL_TURN - 1e-14)
         expect(counterclockwise).toBeLessThan(FULL_TURN)
         expect(clockwise).toBeLessThan(-(FULL_TURN - 1e-14))

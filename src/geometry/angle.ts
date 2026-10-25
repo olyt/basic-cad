@@ -91,10 +91,8 @@ function isInsideMajorArc(query: ArcAngleQuery): boolean {
     return distance <= angularTolerance || gap - distance <= angularTolerance
 }
 
-// Includes both endpoints, widened by an angular tolerance in radians. The
-// tolerance is required: endpoints computed by callers are often a rounding
-// step away from the exact value, so pass 0 only when exactness is intended.
-// A zero sweep includes only its start; either signed full turn includes all angles.
+// Includes both endpoints, widened by the tolerance (radians; 0 only for exact checks).
+// A zero sweep includes only its start; a signed full turn includes every angle.
 export function isAngleInsideArc(query: ArcAngleQuery): boolean {
     const { angle, startAngle, sweep, angularTolerance } = query
     const normalizedAngle = normalizeAngle(angle)

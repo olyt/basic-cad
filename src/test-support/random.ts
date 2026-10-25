@@ -1,5 +1,4 @@
-// Repeatable pseudo-random values for property tests (Mulberry32), so a
-// failure reproduces exactly from its seed.
+// Seeded (Mulberry32) so a property-test failure reproduces from its seed.
 export interface TestRandom {
     // Uniform in [min, max).
     between(min: number, max: number): number
