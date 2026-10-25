@@ -74,6 +74,23 @@ function angularDistance(first: number, second: number): number {
     return Math.min(gap, FULL_TURN - gap)
 }
 
+function counterclockwiseDistance(start: number, end: number): number {
+    // Add the small pieces of a wrapped gap before rounding away either one.
+    return end >= start ? end - start : FULL_TURN - start + end
+}
+
+function isInsideMajorArc(query: ArcAngleQuery): boolean {
+    const { angle, startAngle, sweep, angularTolerance } = query
+    const gap = FULL_TURN - Math.abs(sweep)
+    const distance =
+        sweep < 0
+            ? counterclockwiseDistance(startAngle, angle)
+            : counterclockwiseDistance(angle, startAngle)
+
+    // The complementary gap is open; tolerance includes either nearby boundary.
+    return distance <= angularTolerance || gap - distance <= angularTolerance
+}
+
 // Includes both endpoints, widened by an angular tolerance in radians. The
 // tolerance is required: endpoints computed by callers are often a rounding
 // step away from the exact value, so pass 0 only when exactness is intended.
@@ -99,6 +116,15 @@ export function isAngleInsideArc(query: ArcAngleQuery): boolean {
 
     if (magnitude === FULL_TURN) {
         return true
+    }
+
+    if (magnitude > Math.PI) {
+        return isInsideMajorArc({
+            angle: normalizedAngle,
+            startAngle: normalizedStart,
+            sweep,
+            angularTolerance,
+        })
     }
 
     const normalizedEnd = normalizeAngle(normalizedStart + sweep)

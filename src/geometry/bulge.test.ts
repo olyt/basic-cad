@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { FULL_TURN } from './angle'
 import { bulgeToSegment, segmentToBulge } from './bulge'
-import { MAX_COORDINATE, createArc, createLine } from './curve'
+import { MAX_COORDINATE, createArc, createLine, type Arc } from './curve'
 import { segmentEndpoints } from './segment'
 import type { Vector2 } from './vector'
 import { seededRandom } from '../test-support/random'
@@ -98,6 +98,48 @@ describe('bulge conversion', () => {
             expect(points.end).not.toEqual(points.start)
             expect(converted.bulge * sign).toBeGreaterThan(1)
             expect(restored).toMatchObject({ type: 'arc', radius: 1 })
+        },
+    )
+
+    it.each([
+        [{ x: 0, y: 0 }, 1],
+        [{ x: 0, y: 0 }, -1],
+        [{ x: 1, y: 0 }, 1],
+        [{ x: 1, y: 0 }, -1],
+    ] as const)(
+        'rejects unresolved near-full geometry: center %o, sign %s',
+        (center, sign) => {
+            const arc = createArc({
+                center,
+                radius: 1,
+                startAngle: 0.1,
+                sweep: sign * (FULL_TURN - 2 ** -50),
+            })
+
+            expect(() => segmentToBulge(arc)).toThrow(RangeError)
+        },
+    )
+
+    it.each([1, -1])(
+        'round-trips a resolved near-full arc with sign %s',
+        (sign) => {
+            const arc = createArc({
+                center: { x: 3, y: -4 },
+                radius: 2,
+                startAngle: 0.1,
+                sweep: sign * (FULL_TURN - 1e-3),
+            })
+            const converted = segmentToBulge(arc)
+            const restored = bulgeToSegment(converted)
+
+            expect(restored.type).toBe('arc')
+
+            if (restored.type === 'arc') {
+                expectPoint(restored.center, arc.center)
+                expect(restored.radius).toBeCloseTo(arc.radius, 11)
+                expect(restored.startAngle).toBeCloseTo(arc.startAngle, 11)
+                expect(restored.sweep).toBe(arc.sweep)
+            }
         },
     )
 
@@ -225,17 +267,87 @@ describe('bulge conversion', () => {
 })
 
 describe('bulge conversion properties (fixed seed)', () => {
-    function attempt<T>(convert: () => T): T | string {
+    function attempt<T>(convert: () => T): T | undefined {
         try {
             return convert()
         } catch (error) {
-            return (error as Error).message
+            if (error instanceof RangeError) {
+                return undefined
+            }
+
+            throw error
         }
     }
 
-    it('round-trips random arcs through their bulge, keeping the sweep', () => {
+    function roundTrip(arc: Arc): ReturnType<typeof bulgeToSegment> {
+        const { start: from, end: to, bulge } = segmentToBulge(arc)
+
+        return bulgeToSegment({ start: from, end: to, bulge })
+    }
+
+    function geometryMatches(original: Arc, restored: Arc): boolean {
+        const budget = original.radius * 1e-8
+
+        const centerError = Math.hypot(
+            original.center.x - restored.center.x,
+            original.center.y - restored.center.y,
+        )
+        const shapeMatches =
+            centerError <= budget &&
+            Math.abs(original.radius - restored.radius) <= budget &&
+            Math.abs(original.sweep - restored.sweep) <= 1e-12
+
+        if (!shapeMatches) {
+            return false
+        }
+
+        return [0, 0.25, 0.5, 0.75, 1].every((fraction) => {
+            const from = original.startAngle + original.sweep * fraction
+            const to = restored.startAngle + restored.sweep * fraction
+
+            return (
+                Math.hypot(
+                    original.center.x -
+                        restored.center.x +
+                        original.radius * Math.cos(from) -
+                        restored.radius * Math.cos(to),
+                    original.center.y -
+                        restored.center.y +
+                        original.radius * Math.sin(from) -
+                        restored.radius * Math.sin(to),
+                ) <=
+                4 * budget
+            )
+        })
+    }
+
+    it('preserves the geometry of well-conditioned random arcs', () => {
         const random = seededRandom(1)
         const failures = Array.from({ length: 5000 }, () => {
+            const radius = random.magnitude(-3, 6)
+            const arc = createArc({
+                center: {
+                    x: radius * random.between(-100, 100),
+                    y: radius * random.between(-100, 100),
+                },
+                radius,
+                startAngle: random.between(-10, 10),
+                sweep: random.sign() * random.between(1e-3, FULL_TURN - 1e-3),
+            })
+            const restored = roundTrip(arc)
+
+            return { arc, restored }
+        }).filter(
+            ({ arc, restored }) =>
+                restored.type !== 'arc' || !geometryMatches(arc, restored),
+        )
+
+        expect(failures).toEqual([])
+    })
+
+    it('preserves accepted random arcs across larger coordinate-to-radius ratios', () => {
+        const random = seededRandom(4)
+        const results = Array.from({ length: 5000 }, () => {
             const arc = createArc({
                 center: {
                     x: random.between(-1e6, 1e6),
@@ -245,19 +357,18 @@ describe('bulge conversion properties (fixed seed)', () => {
                 startAngle: random.between(-10, 10),
                 sweep: random.sign() * random.between(1e-6, FULL_TURN - 1e-6),
             })
-            const { start: from, end: to, bulge } = segmentToBulge(arc)
-            const restored = attempt(() =>
-                bulgeToSegment({ start: from, end: to, bulge }),
-            )
 
-            return { arc, restored }
-        }).filter(
+            return { arc, restored: attempt(() => roundTrip(arc)) }
+        })
+        const failures = results.filter(
             ({ arc, restored }) =>
-                typeof restored === 'string' ||
-                restored.type !== 'arc' ||
-                Math.abs(restored.sweep - arc.sweep) > 1e-12,
+                restored !== undefined &&
+                (restored.type !== 'arc' || !geometryMatches(arc, restored)),
         )
 
+        expect(results.some(({ restored }) => restored === undefined)).toBe(
+            true,
+        )
         expect(failures).toEqual([])
     })
 

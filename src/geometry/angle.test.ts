@@ -223,6 +223,102 @@ describe('angle inclusion in arcs', () => {
         ).toBe(false)
     })
 
+    it.each([1, -1])(
+        'preserves a tiny complementary gap in direction %s',
+        (sign) => {
+            const gap = 2 ** -50
+            const start = sign < 0 ? 1e-15 : 2 ** -49
+            const angle = sign < 0 ? 2 ** -49 : 1e-15
+            const sweep = sign * (FULL_TURN - gap)
+            const endTolerance = gap - Math.abs(angle - start)
+            const end = start - sign * gap
+
+            expect(
+                isAngleInsideArc({
+                    angle,
+                    startAngle: start,
+                    sweep,
+                    angularTolerance: exact,
+                }),
+            ).toBe(false)
+            expect(
+                isAngleInsideArc({
+                    angle,
+                    startAngle: start,
+                    sweep,
+                    angularTolerance: endTolerance / 2,
+                }),
+            ).toBe(false)
+            expect(
+                isAngleInsideArc({
+                    angle,
+                    startAngle: start,
+                    sweep,
+                    angularTolerance: endTolerance,
+                }),
+            ).toBe(true)
+            expect(
+                isAngleInsideArc({
+                    angle: start,
+                    startAngle: start,
+                    sweep,
+                    angularTolerance: exact,
+                }),
+            ).toBe(true)
+            expect(
+                isAngleInsideArc({
+                    angle: end,
+                    startAngle: start,
+                    sweep,
+                    angularTolerance: exact,
+                }),
+            ).toBe(true)
+            expect(
+                isAngleInsideArc({
+                    angle: start + sign * gap,
+                    startAngle: start,
+                    sweep,
+                    angularTolerance: exact,
+                }),
+            ).toBe(true)
+        },
+    )
+
+    it.each([1, -1])(
+        'keeps tiny complementary gaps across zero in direction %s',
+        (sign) => {
+            const halfGap = 2 ** -50
+            const start = sign < 0 ? FULL_TURN - halfGap : halfGap
+            const sweep = sign * (FULL_TURN - 2 * halfGap)
+            const insideGap = halfGap / 2
+
+            expect(
+                isAngleInsideArc({
+                    angle: insideGap,
+                    startAngle: start,
+                    sweep,
+                    angularTolerance: exact,
+                }),
+            ).toBe(false)
+            expect(
+                isAngleInsideArc({
+                    angle: 1.5 * halfGap,
+                    startAngle: start,
+                    sweep,
+                    angularTolerance: exact,
+                }),
+            ).toBe(true)
+            expect(
+                isAngleInsideArc({
+                    angle: insideGap,
+                    startAngle: start,
+                    sweep,
+                    angularTolerance: halfGap / 2,
+                }),
+            ).toBe(true)
+        },
+    )
+
     it('includes a computed endpoint despite subtraction roundoff', () => {
         expect(
             isAngleInsideArc({
