@@ -1,4 +1,5 @@
 import { type Arc, type Polyline, type PolylineSegment } from './curve'
+import { integerCoordinate } from './exact'
 import { copyPolylineSegments } from './polyline'
 import { segmentEndpoints } from './segment'
 import {
@@ -7,8 +8,6 @@ import {
     type ModelTolerance,
 } from './tolerance'
 import { type Vector2 } from './vector'
-
-const coordinateBits = new DataView(new ArrayBuffer(8))
 
 function samePoint(first: Vector2, second: Vector2): boolean {
     return first.x === second.x && first.y === second.y
@@ -25,21 +24,6 @@ function checkedProduct(first: number, second: number): number {
     }
 
     return product
-}
-
-// Every finite double is an integer multiple of 2^-1074.
-function integerCoordinate(value: number): bigint {
-    coordinateBits.setFloat64(0, value)
-
-    const bits = coordinateBits.getBigUint64(0)
-    const exponent = Number((bits >> 52n) & 0x7ffn)
-    let coefficient = bits & ((1n << 52n) - 1n)
-
-    if (exponent !== 0) {
-        coefficient = (coefficient | (1n << 52n)) << BigInt(exponent - 1)
-    }
-
-    return bits >> 63n === 0n ? coefficient : -coefficient
 }
 
 function polygonArea(numerator: bigint): number {

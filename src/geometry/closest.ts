@@ -1,4 +1,4 @@
-import { FULL_TURN } from './angle'
+import { FULL_TURN, isDeltaInsideSweep } from './angle'
 import {
     createArc,
     createCircle,
@@ -70,14 +70,6 @@ function closestOnCircle(circle: Circle, query: Vector2): ClosestPoint {
     return candidateAt(circle, { query, parameter })
 }
 
-function isWithinSweep(delta: number, magnitude: number): boolean {
-    if (magnitude <= Math.PI) {
-        return delta >= 0 && delta <= magnitude
-    }
-
-    return delta >= 0 || -delta >= FULL_TURN - magnitude
-}
-
 function closestEndpoint(arc: Arc, query: Vector2): ClosestPoint {
     const start = candidateAt(arc, { query, parameter: 0 })
     const end = candidateAt(arc, { query, parameter: 1 })
@@ -101,7 +93,7 @@ function closestOnArc(arc: Arc, query: Vector2): ClosestPoint {
         Math.atan2(cross(startUnit, queryUnit), dot(startUnit, queryUnit))
     const magnitude = Math.abs(arc.sweep)
 
-    if (!isWithinSweep(delta, magnitude)) {
+    if (!isDeltaInsideSweep(delta, magnitude)) {
         return closestEndpoint(arc, query)
     }
 

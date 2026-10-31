@@ -68,6 +68,32 @@ export function signedSweep(
     return sign * (turn === 0 ? LARGEST_PARTIAL_TURN : turn)
 }
 
+// Delta is the signed angle from the start ray in the sweep direction, in [-π, π].
+// Magnitude is the absolute sweep, in [0, 2π].
+export function isDeltaInsideSweep(delta: number, magnitude: number): boolean {
+    if (!Number.isFinite(delta) || Math.abs(delta) > Math.PI) {
+        throw new RangeError('Sweep delta must be finite and within [-π, π].')
+    }
+
+    if (!Number.isFinite(magnitude)) {
+        throw new RangeError('Sweep magnitude must be finite.')
+    }
+
+    if (magnitude < 0 || magnitude > FULL_TURN) {
+        throw new RangeError('Sweep magnitude must be within [0, 2π].')
+    }
+
+    // Both signs of π describe the same endpoint ray.
+    const angle = delta === -Math.PI ? Math.PI : delta
+
+    if (magnitude <= Math.PI) {
+        return angle >= 0 && angle <= magnitude
+    }
+
+    // Preserve the tiny excluded gap without adding a full turn to delta.
+    return angle >= 0 || -angle >= FULL_TURN - magnitude
+}
+
 function angularDistance(first: number, second: number): number {
     const gap = Math.abs(first - second)
 

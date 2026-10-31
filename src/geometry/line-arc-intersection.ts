@@ -1,4 +1,4 @@
-import { FULL_TURN } from './angle'
+import { isDeltaInsideSweep } from './angle'
 import { createArc, createCircle, type Arc } from './curve'
 import { lineCircleIntersections } from './line-circle-intersection'
 import { type LineOperand } from './line-intersection'
@@ -22,15 +22,6 @@ function rayAngle(first: Vector2, second: Vector2): number {
     return Math.atan2(cross(first, second), dot(first, second))
 }
 
-function isInsideSweep(delta: number, magnitude: number): boolean {
-    if (magnitude <= Math.PI) {
-        return delta >= 0 && delta <= magnitude
-    }
-
-    // Preserve the tiny excluded gap without adding a full turn to delta.
-    return delta >= 0 || -delta >= FULL_TURN - magnitude
-}
-
 function containsDirection(
     boundary: SweepBoundary,
     direction: Vector2,
@@ -43,7 +34,7 @@ function containsDirection(
 
     return (
         atEndpoint ||
-        isInsideSweep(
+        isDeltaInsideSweep(
             Math.sign(boundary.sweep) * delta,
             Math.abs(boundary.sweep),
         )

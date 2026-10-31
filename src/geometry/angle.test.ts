@@ -3,6 +3,7 @@ import {
     FULL_TURN,
     type AngleDirection,
     isAngleInsideArc,
+    isDeltaInsideSweep,
     normalizeAngle,
     signedSweep,
 } from './angle'
@@ -131,6 +132,94 @@ describe('directed signed sweeps', () => {
             signedSweep({ startAngle: 1, endAngle: 1 }, sideways),
         ).toThrow(RangeError)
     })
+})
+
+describe('signed delta inclusion in sweeps', () => {
+    it('includes partial-sweep endpoints, including either sign of the opposite ray', () => {
+        expect(isDeltaInsideSweep(0, 0)).toBe(true)
+        expect(isDeltaInsideSweep(-0, 0)).toBe(true)
+        expect(isDeltaInsideSweep(Number.MIN_VALUE, 0)).toBe(false)
+        expect(isDeltaInsideSweep(-Number.MIN_VALUE, 0)).toBe(false)
+        expect(isDeltaInsideSweep(Number.MIN_VALUE, Number.MIN_VALUE)).toBe(
+            true,
+        )
+        expect(isDeltaInsideSweep(-Number.MIN_VALUE, Number.MIN_VALUE)).toBe(
+            false,
+        )
+        expect(isDeltaInsideSweep(quarterTurn, quarterTurn)).toBe(true)
+        expect(isDeltaInsideSweep(-quarterTurn, quarterTurn)).toBe(false)
+
+        for (const delta of [-Math.PI, Math.PI]) {
+            expect(isDeltaInsideSweep(delta, Math.PI)).toBe(true)
+            expect(isDeltaInsideSweep(delta, Math.PI - 2 ** -51)).toBe(false)
+        }
+    })
+
+    it('preserves the excluded gap and its inclusive endpoint in major sweeps', () => {
+        expect(isDeltaInsideSweep(-quarterTurn, 3 * quarterTurn)).toBe(true)
+        expect(
+            isDeltaInsideSweep(-quarterTurn + Number.EPSILON, 3 * quarterTurn),
+        ).toBe(false)
+
+        const gap = 2 ** -50
+        const magnitude = FULL_TURN - gap
+
+        expect(isDeltaInsideSweep(-gap, magnitude)).toBe(true)
+        expect(isDeltaInsideSweep(-2 * gap, magnitude)).toBe(true)
+        expect(isDeltaInsideSweep(-gap / 2, magnitude)).toBe(false)
+        expect(isDeltaInsideSweep(-Number.MIN_VALUE, magnitude)).toBe(false)
+        expect(isDeltaInsideSweep(0, magnitude)).toBe(true)
+    })
+
+    it('includes every supported delta in a full turn', () => {
+        for (const delta of [
+            -Math.PI,
+            -quarterTurn,
+            -Number.MIN_VALUE,
+            -0,
+            0,
+            Number.MIN_VALUE,
+            quarterTurn,
+            Math.PI,
+        ]) {
+            expect(isDeltaInsideSweep(delta, FULL_TURN)).toBe(true)
+        }
+    })
+
+    it.each([
+        NaN,
+        Infinity,
+        -Infinity,
+        Math.PI + 2 ** -51,
+        -Math.PI - 2 ** -51,
+        Number.MAX_VALUE,
+        -Number.MAX_VALUE,
+    ])('rejects unsupported delta %s before classifying any sweep', (delta) => {
+        for (const magnitude of [0, Math.PI, FULL_TURN]) {
+            expect(() => isDeltaInsideSweep(delta, magnitude)).toThrow(
+                RangeError,
+            )
+        }
+    })
+
+    it.each([
+        NaN,
+        Infinity,
+        -Infinity,
+        -Number.MIN_VALUE,
+        -1,
+        FULL_TURN + 2 ** -50,
+        Number.MAX_VALUE,
+    ])(
+        'rejects unsupported magnitude %s before classifying any delta',
+        (magnitude) => {
+            for (const delta of [-Math.PI, 0, Math.PI]) {
+                expect(() => isDeltaInsideSweep(delta, magnitude)).toThrow(
+                    RangeError,
+                )
+            }
+        },
+    )
 })
 
 describe('angle inclusion in arcs', () => {
