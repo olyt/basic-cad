@@ -1,5 +1,5 @@
 import { createCircle, createLine, type Circle } from './curve'
-import { integerCoordinate, roundSurd } from './exact'
+import { integerCoordinates, roundSurd } from './exact'
 import { isLineDomain, type LineOperand } from './line-intersection'
 import { type Vector2 } from './vector'
 
@@ -13,6 +13,7 @@ interface IntegerVector {
 }
 
 interface CircleEquation {
+    readonly exponent: number
     readonly start: IntegerVector
     readonly direction: IntegerVector
     readonly offset: IntegerVector
@@ -33,10 +34,6 @@ export interface CircleIntersection {
     readonly direction: Vector2
 }
 
-function integerVector(point: Vector2): IntegerVector {
-    return { x: integerCoordinate(point.x), y: integerCoordinate(point.y) }
-}
-
 function circleEquation(operand: LineOperand, circle: Circle): CircleEquation {
     if (!isLineDomain(operand.domain)) {
         throw new RangeError(
@@ -46,18 +43,28 @@ function circleEquation(operand: LineOperand, circle: Circle): CircleEquation {
 
     const line = createLine(operand.line.start, operand.line.end)
     const checked = createCircle(circle.center, circle.radius)
-    const start = integerVector(line.start)
-    const end = integerVector(line.end)
-    const center = integerVector(checked.center)
-    const direction = { x: end.x - start.x, y: end.y - start.y }
-    const offset = { x: start.x - center.x, y: start.y - center.y }
-    const radius = integerCoordinate(checked.radius)
+    const {
+        exponent,
+        values: [sx, sy, ex, ey, cx, cy, radius],
+    } = integerCoordinates([
+        line.start.x,
+        line.start.y,
+        line.end.x,
+        line.end.y,
+        checked.center.x,
+        checked.center.y,
+        checked.radius,
+    ])
+    const start = { x: sx, y: sy }
+    const direction = { x: ex - sx, y: ey - sy }
+    const offset = { x: sx - cx, y: sy - cy }
     const squaredLength = direction.x ** 2n + direction.y ** 2n
     const projection = -(offset.x * direction.x + offset.y * direction.y)
     const cross = offset.x * direction.y - offset.y * direction.x
     const radicand = squaredLength * radius ** 2n - cross ** 2n
 
     return {
+        exponent,
         start,
         direction,
         offset,
@@ -97,6 +104,7 @@ function isOnSegment(equation: CircleEquation, root: Root): boolean {
 
 function circleHit(equation: CircleEquation, root: Root): CircleIntersection {
     const {
+        exponent,
         start,
         direction,
         offset,
@@ -107,22 +115,28 @@ function circleHit(equation: CircleEquation, root: Root): CircleIntersection {
     } = equation
     const sign = BigInt(root.sign)
     const coordinate = (axis: keyof Vector2): number =>
-        roundSurd({
-            base: start[axis] * squaredLength + direction[axis] * projection,
-            coefficient: direction[axis] * sign,
-            radicand,
-            denominator: squaredLength,
-        })
-    // Scale before rounding so even subnormal circles retain their directions.
+        roundSurd(
+            {
+                base:
+                    start[axis] * squaredLength + direction[axis] * projection,
+                coefficient: direction[axis] * sign,
+                radicand,
+                denominator: squaredLength,
+            },
+            exponent,
+        )
+    // Directions are dimensionless, independent of the world-coordinate scale.
     const unit = (axis: keyof Vector2): number =>
-        roundSurd({
-            base:
-                (offset[axis] * squaredLength + direction[axis] * projection) <<
-                1074n,
-            coefficient: (direction[axis] * sign) << 1074n,
-            radicand,
-            denominator: squaredLength * radius,
-        })
+        roundSurd(
+            {
+                base:
+                    offset[axis] * squaredLength + direction[axis] * projection,
+                coefficient: direction[axis] * sign,
+                radicand,
+                denominator: squaredLength * radius,
+            },
+            0,
+        )
 
     return {
         point: { x: coordinate('x'), y: coordinate('y') },

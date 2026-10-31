@@ -1,5 +1,5 @@
 import { createCircle, type Circle } from './curve'
-import { integerCoordinate, roundSurd } from './exact'
+import { integerCoordinates, roundSurd } from './exact'
 import { type Vector2 } from './vector'
 
 export type CircularIntersectionKind =
@@ -31,6 +31,7 @@ interface IntegerVector {
 }
 
 interface CircleEquation {
+    readonly exponent: number
     readonly center: IntegerVector
     readonly delta: IntegerVector
     readonly firstRadius: bigint
@@ -44,23 +45,28 @@ const ROOT_SIGNS = [-1, 1] as const
 
 type RootSign = (typeof ROOT_SIGNS)[number]
 
-function integerVector(point: Vector2): IntegerVector {
-    return { x: integerCoordinate(point.x), y: integerCoordinate(point.y) }
-}
-
 function circleEquation(first: Circle, second: Circle): CircleEquation {
     const a = createCircle(first.center, first.radius)
     const b = createCircle(second.center, second.radius)
-    const center = integerVector(a.center)
-    const other = integerVector(b.center)
-    const delta = { x: other.x - center.x, y: other.y - center.y }
-    const firstRadius = integerCoordinate(a.radius)
-    const secondRadius = integerCoordinate(b.radius)
+    const {
+        exponent,
+        values: [ax, ay, bx, by, firstRadius, secondRadius],
+    } = integerCoordinates([
+        a.center.x,
+        a.center.y,
+        b.center.x,
+        b.center.y,
+        a.radius,
+        b.radius,
+    ])
+    const center = { x: ax, y: ay }
+    const delta = { x: bx - ax, y: by - ay }
     const squaredDistance = delta.x ** 2n + delta.y ** 2n
     const projection = squaredDistance + firstRadius ** 2n - secondRadius ** 2n
     const radicand = 4n * squaredDistance * firstRadius ** 2n - projection ** 2n
 
     return {
+        exponent,
         center,
         delta,
         firstRadius,
@@ -73,6 +79,7 @@ function circleEquation(first: Circle, second: Circle): CircleEquation {
 
 function circleHit(equation: CircleEquation, side: RootSign): CirclePairHit {
     const {
+        exponent,
         center,
         delta,
         firstRadius,
@@ -84,20 +91,26 @@ function circleHit(equation: CircleEquation, side: RootSign): CirclePairHit {
     const denominator = 2n * squaredDistance
     const normal = { x: -delta.y * BigInt(side), y: delta.x * BigInt(side) }
     const coordinate = (axis: keyof Vector2): number =>
-        roundSurd({
-            base: center[axis] * denominator + delta[axis] * projection,
-            coefficient: normal[axis],
-            radicand,
-            denominator,
-        })
+        roundSurd(
+            {
+                base: center[axis] * denominator + delta[axis] * projection,
+                coefficient: normal[axis],
+                radicand,
+                denominator,
+            },
+            exponent,
+        )
     const direction = (localProjection: bigint, radius: bigint): Vector2 => {
         const component = (axis: keyof Vector2): number =>
-            roundSurd({
-                base: (delta[axis] * localProjection) << 1074n,
-                coefficient: normal[axis] << 1074n,
-                radicand,
-                denominator: denominator * radius,
-            })
+            roundSurd(
+                {
+                    base: delta[axis] * localProjection,
+                    coefficient: normal[axis],
+                    radicand,
+                    denominator: denominator * radius,
+                },
+                0,
+            )
 
         return { x: component('x'), y: component('y') }
     }

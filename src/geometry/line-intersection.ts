@@ -1,5 +1,5 @@
 import { createLine, type Line } from './curve'
-import { integerCoordinate, roundedCoordinate } from './exact'
+import { integerCoordinates, roundRational } from './exact'
 import { type Vector2 } from './vector'
 
 const LINE_DOMAINS = ['segment', 'infinite'] as const
@@ -24,15 +24,6 @@ interface IntegerPoint {
     readonly y: bigint
 }
 
-interface IntegerLine {
-    readonly start: IntegerPoint
-    readonly direction: IntegerPoint
-}
-
-function integerPoint(point: Vector2): IntegerPoint {
-    return { x: integerCoordinate(point.x), y: integerCoordinate(point.y) }
-}
-
 function difference(first: IntegerPoint, second: IntegerPoint): IntegerPoint {
     return { x: first.x - second.x, y: first.y - second.y }
 }
@@ -45,15 +36,12 @@ export function isLineDomain(value: unknown): value is LineDomain {
     return LINE_DOMAINS.some((domain) => domain === value)
 }
 
-function integerLine({ line, domain }: LineOperand): IntegerLine {
+function checkedLine({ line, domain }: LineOperand): Line {
     if (!isLineDomain(domain)) {
         throw new RangeError(`Unsupported line domain: ${String(domain)}.`)
     }
 
-    const checked = createLine(line.start, line.end)
-    const start = integerPoint(checked.start)
-
-    return { start, direction: difference(integerPoint(checked.end), start) }
+    return createLine(line.start, line.end)
 }
 
 // The denominator is positive; classification happens before any rounding.
@@ -66,8 +54,23 @@ export function intersectLines(
     first: LineOperand,
     second: LineOperand,
 ): LineIntersection {
-    const a = integerLine(first)
-    const b = integerLine(second)
+    const firstLine = checkedLine(first)
+    const secondLine = checkedLine(second)
+    const {
+        exponent,
+        values: [ax, ay, bx, by, cx, cy, dx, dy],
+    } = integerCoordinates([
+        firstLine.start.x,
+        firstLine.start.y,
+        firstLine.end.x,
+        firstLine.end.y,
+        secondLine.start.x,
+        secondLine.start.y,
+        secondLine.end.x,
+        secondLine.end.y,
+    ])
+    const a = { start: { x: ax, y: ay }, direction: { x: bx - ax, y: by - ay } }
+    const b = { start: { x: cx, y: cy }, direction: { x: dx - cx, y: dy - cy } }
     const offset = difference(b.start, a.start)
     let denominator = determinant(a.direction, b.direction)
     let firstNumerator = determinant(offset, b.direction)
@@ -103,8 +106,8 @@ export function intersectLines(
     return {
         kind: 'point',
         point: {
-            x: roundedCoordinate(x, denominator),
-            y: roundedCoordinate(y, denominator),
+            x: roundRational({ numerator: x, denominator }, exponent),
+            y: roundRational({ numerator: y, denominator }, exponent),
         },
     }
 }

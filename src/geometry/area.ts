@@ -1,5 +1,5 @@
 import { type Arc, type Polyline, type PolylineSegment } from './curve'
-import { integerCoordinate } from './exact'
+import { integerCoordinates, roundRational } from './exact'
 import { copyPolylineSegments } from './polyline'
 import { segmentEndpoints } from './segment'
 import {
@@ -26,26 +26,13 @@ function checkedProduct(first: number, second: number): number {
     return product
 }
 
-function polygonArea(numerator: bigint): number {
+function polygonArea(numerator: bigint, exponent: number): number {
     if (numerator === 0n) {
         return 0
     }
 
-    const magnitude = numerator < 0n ? -numerator : numerator
-    const shift = Math.max(1075, magnitude.toString(2).length - 53)
-    let rounded = magnitude >> BigInt(shift)
-
-    const remainder = magnitude - (rounded << BigInt(shift))
-    const halfway = 1n << BigInt(shift - 1)
-    const roundUp =
-        remainder > halfway || (remainder === halfway && (rounded & 1n) !== 0n)
-
-    if (roundUp) {
-        rounded += 1n
-    }
-
-    // Shoelace products have scale 2^-2148; signed area adds division by two.
-    const area = Number(rounded) * 2 ** (shift - 2149)
+    // Shoelace products square the input unit; signed area adds division by two.
+    const area = roundRational({ numerator, denominator: 1n }, 2 * exponent - 1)
 
     if (!Number.isFinite(area) || area === 0) {
         throw new RangeError(
@@ -53,7 +40,7 @@ function polygonArea(numerator: bigint): number {
         )
     }
 
-    return numerator < 0n ? -area : area
+    return area
 }
 
 function arcCorrection(arc: Arc): number {
@@ -83,16 +70,20 @@ function* areaContributions(
     segments: readonly [PolylineSegment, ...PolylineSegment[]],
     tolerance: ModelTolerance,
 ): Generator<number> {
-    const first = segmentEndpoints(segments[0]).start
+    const endpoints = segments.map(segmentEndpoints)
+    const first = endpoints[0]!.start
+    const { exponent, values } = integerCoordinates(
+        endpoints.flatMap(({ start }) => [start.x, start.y]),
+    )
     let previous = first
-    const firstX = integerCoordinate(first.x)
-    const firstY = integerCoordinate(first.y)
+    const firstX = values[0]!
+    const firstY = values[1]!
     let previousX = firstX
     let previousY = firstY
     let polygon = 0n
 
-    for (const segment of segments) {
-        const { start, end } = segmentEndpoints(segment)
+    for (const [index, segment] of segments.entries()) {
+        const { start, end } = endpoints[index]!
 
         if (!pointsCoincide(previous, start, tolerance)) {
             throw new RangeError(
@@ -106,8 +97,8 @@ function* areaContributions(
             )
         }
 
-        const startX = integerCoordinate(start.x)
-        const startY = integerCoordinate(start.y)
+        const startX = values[2 * index]!
+        const startY = values[2 * index + 1]!
 
         polygon += previousX * startY - previousY * startX
 
@@ -128,7 +119,7 @@ function* areaContributions(
 
     polygon += previousX * firstY - previousY * firstX
 
-    yield polygonArea(polygon)
+    yield polygonArea(polygon, exponent)
 }
 
 function compensatedSum(contributions: Iterable<number>): number {
