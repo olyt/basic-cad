@@ -1,6 +1,7 @@
-import { isDeltaInsideSweep } from './angle'
+import { FULL_TURN, isDeltaInsideSweep } from './angle'
 import { createArc, createCircle, type Arc, type Circle } from './curve'
 import { circularEvaluation } from './segment'
+import { type ParameterLocation } from './intersection-location'
 import { cross, dot, type Vector2 } from './vector'
 
 export interface ArcQuery {
@@ -13,6 +14,7 @@ export interface ArcBoundary {
     readonly circle: Circle
     // Intersection engines supply a normalized local direction.
     containsDirection(direction: Vector2): boolean
+    locateDirection(direction: Vector2): ParameterLocation | undefined
 }
 
 interface SweepBoundary {
@@ -52,6 +54,39 @@ function endpointDirection(arc: Arc, parameter: number): Vector2 {
     return { x: sign * tangent.y, y: -sign * tangent.x }
 }
 
+function directionLocation(
+    boundary: SweepBoundary,
+    direction: Vector2,
+): ParameterLocation | undefined {
+    if (!containsDirection(boundary, direction)) {
+        return undefined
+    }
+
+    const delta =
+        Math.sign(boundary.sweep) * rayAngle(boundary.start, direction)
+    const endDistance = Math.abs(rayAngle(boundary.end, direction))
+    const atStart = delta === 0
+    const atEnd = endDistance === 0
+
+    if (atStart && !atEnd) {
+        return { parameter: 0, endpoint: 'start' }
+    }
+
+    if (atEnd && !atStart) {
+        return { parameter: 1, endpoint: 'end' }
+    }
+
+    if (!isDeltaInsideSweep(delta, Math.abs(boundary.sweep))) {
+        return { parameter: Math.abs(delta) <= endDistance ? 0 : 1 }
+    }
+
+    const travel = delta < 0 ? FULL_TURN + delta : delta
+
+    return {
+        parameter: Math.max(0, Math.min(1, travel / Math.abs(boundary.sweep))),
+    }
+}
+
 export function createArcBoundary({
     arc,
     angularTolerance,
@@ -74,5 +109,6 @@ export function createArcBoundary({
         circle: createCircle(checked.center, checked.radius),
         containsDirection: (direction) =>
             containsDirection(boundary, direction),
+        locateDirection: (direction) => directionLocation(boundary, direction),
     }
 }

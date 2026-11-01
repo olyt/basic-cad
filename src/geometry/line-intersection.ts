@@ -1,5 +1,9 @@
 import { createLine, type Line } from './curve'
 import { integerCoordinates, roundRational } from './exact'
+import {
+    rationalLocation,
+    type ParameterLocation,
+} from './intersection-location'
 import { type Vector2 } from './vector'
 
 const LINE_DOMAINS = ['segment', 'infinite'] as const
@@ -16,6 +20,25 @@ export type LineIntersection =
     | {
           readonly kind: Extract<LineIntersectionKind, 'point'>
           readonly point: Vector2
+      }
+    | { readonly kind: Exclude<LineIntersectionKind, 'point'> }
+
+export type LocatedLineIntersection =
+    | {
+          readonly kind: Extract<LineIntersectionKind, 'point'>
+          readonly point: Vector2
+          readonly first: ParameterLocation
+          readonly second: ParameterLocation
+      }
+    | { readonly kind: Exclude<LineIntersectionKind, 'point'> }
+
+type ExactLineIntersection =
+    | {
+          readonly kind: Extract<LineIntersectionKind, 'point'>
+          readonly point: Vector2
+          readonly firstNumerator: bigint
+          readonly secondNumerator: bigint
+          readonly denominator: bigint
       }
     | { readonly kind: Exclude<LineIntersectionKind, 'point'> }
 
@@ -49,11 +72,10 @@ function outsideSegment(numerator: bigint, denominator: bigint): boolean {
     return numerator < 0n || numerator > denominator
 }
 
-// Coincidence describes supporting lines, regardless of segment overlap.
-export function intersectLines(
+function exactIntersection(
     first: LineOperand,
     second: LineOperand,
-): LineIntersection {
+): ExactLineIntersection {
     const firstLine = checkedLine(first)
     const secondLine = checkedLine(second)
     const {
@@ -105,9 +127,53 @@ export function intersectLines(
 
     return {
         kind: 'point',
+        firstNumerator,
+        secondNumerator,
+        denominator,
         point: {
             x: roundRational({ numerator: x, denominator }, exponent),
             y: roundRational({ numerator: y, denominator }, exponent),
         },
+    }
+}
+
+// Coincidence describes supporting lines, regardless of segment overlap.
+export function intersectLines(
+    first: LineOperand,
+    second: LineOperand,
+): LineIntersection {
+    const result = exactIntersection(first, second)
+
+    if (result.kind !== 'point') {
+        return result
+    }
+
+    return { kind: 'point', point: result.point }
+}
+
+export function intersectLineSegments(
+    first: Line,
+    second: Line,
+): LocatedLineIntersection {
+    const result = exactIntersection(
+        { line: first, domain: 'segment' },
+        { line: second, domain: 'segment' },
+    )
+
+    if (result.kind !== 'point') {
+        return result
+    }
+
+    return {
+        kind: 'point',
+        point: result.point,
+        first: rationalLocation({
+            numerator: result.firstNumerator,
+            denominator: result.denominator,
+        }),
+        second: rationalLocation({
+            numerator: result.secondNumerator,
+            denominator: result.denominator,
+        }),
     }
 }

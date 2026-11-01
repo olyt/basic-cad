@@ -22,6 +22,7 @@
         "test": "vitest run",
         "test:watch": "vitest",
         "bench:geometry": "node scripts/benchmark-geometry.mjs",
+        "bench:polyline": "node scripts/benchmark-polyline.mjs",
         "dxf:check": "node tools/dxf-check/run.mjs",
         "test:dxf-check": "node tools/dxf-check/run.mjs --test"
     },

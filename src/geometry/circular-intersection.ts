@@ -17,7 +17,7 @@ export interface CircularPairQuery {
 function prepareCurve(
     curve: CircularCurve,
     angularTolerance: number,
-): ArcBoundary {
+): Pick<ArcBoundary, 'circle' | 'containsDirection'> {
     switch (curve.type) {
         case 'circle':
             return {

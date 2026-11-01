@@ -1,5 +1,6 @@
-import { createCircle, createLine, type Circle } from './curve'
+import { createCircle, createLine, type Circle, type Line } from './curve'
 import { integerCoordinates, roundSurd } from './exact'
+import { type ParameterLocation } from './intersection-location'
 import { isLineDomain, type LineOperand } from './line-intersection'
 import { type Vector2 } from './vector'
 
@@ -32,6 +33,15 @@ export interface CircleIntersection {
     readonly point: Vector2
     // Relative to the circle center, independently of rounded world coordinates.
     readonly direction: Vector2
+}
+
+export interface LocatedCircleIntersection extends CircleIntersection {
+    readonly line: ParameterLocation
+}
+
+interface LineCircleQuery {
+    readonly operand: LineOperand
+    readonly circle: Circle
 }
 
 function circleEquation(operand: LineOperand, circle: Circle): CircleEquation {
@@ -144,11 +154,10 @@ function circleHit(equation: CircleEquation, root: Root): CircleIntersection {
     }
 }
 
-// Roots stay distinct even when their world coordinates round to the same point.
-export function lineCircleIntersections(
-    operand: LineOperand,
-    circle: Circle,
-): readonly CircleIntersection[] {
+function lineCircleRoots<T>(
+    { operand, circle }: LineCircleQuery,
+    emit: (equation: CircleEquation, root: Root) => T,
+): readonly T[] {
     const equation = circleEquation(operand, circle)
 
     if (equation.radicand < 0n) {
@@ -156,17 +165,64 @@ export function lineCircleIntersections(
     }
 
     const signs = equation.radicand === 0n ? [1 as RootSign] : ROOT_SIGNS
-    const hits: CircleIntersection[] = []
+    const hits: T[] = []
 
     for (const sign of signs) {
         const root = { sign, radicand: equation.radicand }
 
         if (operand.domain === 'infinite' || isOnSegment(equation, root)) {
-            hits.push(circleHit(equation, root))
+            hits.push(emit(equation, root))
         }
     }
 
     return hits
+}
+
+// Roots stay distinct even when their world coordinates round to the same point.
+export function lineCircleIntersections(
+    operand: LineOperand,
+    circle: Circle,
+): readonly CircleIntersection[] {
+    return lineCircleRoots({ operand, circle }, circleHit)
+}
+
+function lineLocation(equation: CircleEquation, root: Root): ParameterLocation {
+    if (rootSide(equation.projection, root) === 0) {
+        return { parameter: 0, endpoint: 'start' }
+    }
+
+    if (rootSide(equation.projection - equation.squaredLength, root) === 0) {
+        return { parameter: 1, endpoint: 'end' }
+    }
+
+    return {
+        parameter: roundSurd(
+            {
+                base: equation.projection,
+                coefficient: BigInt(root.sign),
+                radicand: equation.radicand,
+                denominator: equation.squaredLength,
+            },
+            0,
+        ),
+    }
+}
+
+function locatedCircleHit(
+    equation: CircleEquation,
+    root: Root,
+): LocatedCircleIntersection {
+    return { ...circleHit(equation, root), line: lineLocation(equation, root) }
+}
+
+export function locatedLineCircleIntersections(
+    line: Line,
+    circle: Circle,
+): readonly LocatedCircleIntersection[] {
+    return lineCircleRoots(
+        { operand: { line, domain: 'segment' }, circle },
+        locatedCircleHit,
+    )
 }
 
 // Results follow the line's start-to-end direction; no model tolerance is applied.
