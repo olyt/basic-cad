@@ -40,7 +40,7 @@ function lineCircularPair(
 ): PrimitiveIntersections {
     const hits = locatedLineCircleIntersections(first, second.circle!).flatMap(
         (hit) => {
-            const location = directionLocation(second, hit.direction)
+            const location = directionLocation(second, hit)
 
             return location
                 ? [{ point: hit.point, first: hit.line, second: location }]
@@ -64,8 +64,14 @@ function circularPair(
     const hits: PrimitiveHit[] = []
 
     for (const hit of result.hits) {
-        const firstLocation = directionLocation(first, hit.firstDirection)
-        const secondLocation = directionLocation(second, hit.secondDirection)
+        const firstLocation = directionLocation(first, {
+            point: hit.point,
+            direction: hit.firstDirection,
+        })
+        const secondLocation = directionLocation(second, {
+            point: hit.point,
+            direction: hit.secondDirection,
+        })
 
         if (firstLocation && secondLocation) {
             hits.push({

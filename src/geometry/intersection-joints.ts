@@ -76,7 +76,7 @@ export function curveJoints(
     return { curve, byPart, tolerance }
 }
 
-function eventJoint(
+export function jointAtPoint(
     curve: JointCurve,
     input: { readonly part: number; readonly point: Vector2 },
 ): IntersectionJoint | undefined {
@@ -106,11 +106,11 @@ export function classifyJointEvent(
     event: IntersectionEvent,
     curves: { readonly first: JointCurve; readonly second: JointCurve },
 ): JointEvent {
-    const firstJoint = eventJoint(curves.first, {
+    const firstJoint = jointAtPoint(curves.first, {
         part: event.firstPart,
         point: event.hit.point,
     })
-    const secondJoint = eventJoint(curves.second, {
+    const secondJoint = jointAtPoint(curves.second, {
         part: event.secondPart,
         point: event.hit.point,
     })

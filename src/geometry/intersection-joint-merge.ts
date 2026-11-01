@@ -151,11 +151,33 @@ function mergedEvent(cluster: readonly JointEvent[]): IntersectionEvent {
     }
 }
 
+function jointOwnedEvent({
+    event,
+    firstJoint,
+    secondJoint,
+}: JointEvent): IntersectionEvent {
+    return {
+        ...event,
+        firstEndpoint: event.firstEndpoint || firstJoint !== undefined,
+        secondEndpoint: event.secondEndpoint || secondJoint !== undefined,
+        hit: {
+            point: event.hit.point,
+            first: firstJoint?.location ?? event.hit.first,
+            second: secondJoint?.location ?? event.hit.second,
+        },
+    }
+}
+
 function mergeGroup(
     candidates: readonly JointEvent[],
     tolerance: ModelTolerance,
 ): IntersectionEvent[] {
     const ordered = candidates.toSorted(compareCandidates)
+
+    // A lone joint hit would otherwise keep a rounded parameter beside the vertex.
+    if (ordered.length === 1) {
+        return [jointOwnedEvent(ordered[0]!)]
+    }
 
     for (const seed of ordered) {
         const cluster = growCluster({ seed, candidates: ordered }, tolerance)

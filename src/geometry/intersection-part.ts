@@ -15,6 +15,11 @@ import { assertFiniteVector2, type Vector2 } from './vector'
 
 export type PrimitiveCurve = Line | Circle | Arc
 
+export interface CircularRoot {
+    readonly point: Vector2
+    readonly direction: Vector2
+}
+
 export interface IntersectionPart {
     readonly curve: PrimitiveCurve
     readonly bounds: BoundingBox
@@ -22,6 +27,9 @@ export interface IntersectionPart {
         { readonly start: Vector2; readonly end: Vector2 } | undefined
     readonly circle: Circle | undefined
     readonly boundary: ArcBoundary | undefined
+    readonly locateJointRoot?: (
+        root: CircularRoot,
+    ) => ParameterLocation | undefined
 }
 
 function checkedPrimitive(curve: PrimitiveCurve): PrimitiveCurve {
@@ -73,8 +81,10 @@ export function prepareIntersectionPart(
 
 export function directionLocation(
     part: IntersectionPart,
-    direction: Vector2,
+    root: CircularRoot,
 ): ParameterLocation | undefined {
+    const { direction } = root
+
     assertFiniteVector2(direction)
 
     if (direction.x === 0 && direction.y === 0) {
@@ -88,7 +98,10 @@ export function directionLocation(
     }
 
     if (part.boundary) {
-        return part.boundary.locateDirection(direction)
+        return (
+            part.boundary.locateDirection(direction) ??
+            part.locateJointRoot?.(root)
+        )
     }
 
     throw new RangeError('A line has no circular direction location.')

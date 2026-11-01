@@ -15,6 +15,7 @@ import {
 } from './intersection-events'
 import { intersectPrimitiveParts } from './primitive-intersection'
 import { mergeJointIntersections } from './intersection-joint-merge'
+import { admitJointArcRoots } from './joint-root-admission'
 import { createModelTolerance, type ModelTolerance } from './tolerance'
 
 export type { CurveIntersectionHit } from './intersection-events'
@@ -60,12 +61,14 @@ function coincidentEntry(
 }
 
 export function collectCurveIntersections({
-    first,
-    second,
+    first: inputFirst,
+    second: inputSecond,
     candidates,
     modelTolerance,
 }: PreparedQuery): CurveIntersections {
     const tolerance = createModelTolerance(modelTolerance?.distance ?? NaN)
+    const first = admitJointArcRoots(inputFirst, tolerance)
+    const second = admitJointArcRoots(inputSecond, tolerance)
     const events: IntersectionEvent[] = []
     const coincident: CoincidentCurveParts[] = []
 
