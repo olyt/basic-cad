@@ -21,6 +21,18 @@ export type EntityColor = AciColor | 'by-layer'
 const lineweightValues: ReadonlySet<unknown> = new Set(LINEWEIGHT_VALUES)
 const lineweightModes: ReadonlySet<unknown> = new Set(LINEWEIGHT_MODES)
 const linetypes: ReadonlySet<unknown> = new Set(LINETYPES)
+// Reserved CAD symbols, line breaks and invalid Unicode cannot round-trip.
+const unwritableLayerName = /[<>/\\":;?*|,=`\p{Cc}\p{Cs}\p{Zl}\p{Zp}]/u
+const blankLayerName = /^[\s\p{Cf}]*$/u
+
+export function isLayerName(value: unknown): value is string {
+    return (
+        typeof value === 'string' &&
+        value.length <= 255 &&
+        !unwritableLayerName.test(value) &&
+        !blankLayerName.test(value)
+    )
+}
 
 export function isAciColor(value: unknown): value is AciColor {
     if (typeof value !== 'number' || !Number.isInteger(value)) {

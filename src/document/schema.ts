@@ -18,7 +18,14 @@ import { type DrawingUnits } from './units'
 
 export const DOCUMENT_SCHEMA_VERSION = 1
 
-export type SourceFormat = 'dxf' | 'dwg'
+export const SOURCE_FORMATS = ['dxf', 'dwg'] as const
+export type SourceFormat = (typeof SOURCE_FORMATS)[number]
+
+const sourceFormats: ReadonlySet<unknown> = new Set(SOURCE_FORMATS)
+
+export function isSourceFormat(value: unknown): value is SourceFormat {
+    return sourceFormats.has(value)
+}
 
 export interface SourceFile {
     readonly id: SourceId

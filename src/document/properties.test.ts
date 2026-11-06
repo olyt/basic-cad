@@ -5,6 +5,7 @@ import {
     isEntityColor,
     isEntityLineweight,
     isLayerLineweight,
+    isLayerName,
     isLineweightValue,
     isLinetype,
     LINEWEIGHT_VALUES,
@@ -87,6 +88,54 @@ describe('drawing properties', () => {
             expect(isEntityLineweight(value)).toBe(false)
         }
     })
+
+    it('limits layer names to visible text that one DXF value line can hold', () => {
+        for (const name of [
+            '0',
+            ' Контур ',
+            'План этажа',
+            'نام‌لایه',
+            '👨‍👩‍👧',
+            'Walls_01-$',
+            "O'Brien",
+            'A+B',
+            'x'.repeat(255),
+            '😀'.repeat(127) + 'x',
+        ]) {
+            expect(isLayerName(name)).toBe(true)
+        }
+
+        for (const name of [
+            undefined,
+            null,
+            0,
+            '',
+            ' ',
+            '  ',
+            '​',
+            '​­',
+            'A\nB',
+            'A\r\nB',
+            'A\tB',
+            'A\0B',
+            'A\u007fB',
+            'A\u0085B',
+            'A B',
+            'A B',
+            'A\ud800',
+            'x'.repeat(256),
+            '😀'.repeat(128),
+        ]) {
+            expect(isLayerName(name)).toBe(false)
+        }
+    })
+
+    it.each(['<', '>', '/', '\\', '"', ':', ';', '?', '*', '|', ',', '=', '`'])(
+        'rejects reserved layer-name character %s',
+        (character) => {
+            expect(isLayerName(`Walls${character}Doors`)).toBe(false)
+        },
+    )
 
     it('limits linetypes to the qualified continuous and inheritance choices', () => {
         expect(['continuous', 'by-layer', 'by-block'].every(isLinetype)).toBe(
