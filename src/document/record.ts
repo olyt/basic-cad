@@ -25,3 +25,11 @@ export function readBoolean(value: unknown, name: string): boolean {
 
     return value
 }
+
+export function readNumber(value: unknown, name: string): number {
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+        throw new RangeError(`${name} must be a finite number.`)
+    }
+
+    return value
+}
