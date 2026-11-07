@@ -7,6 +7,7 @@ import {
 import { type DocumentId, type IdKind, type SourceId } from './id'
 import { admitSourceFile } from './record-admission'
 import { applyRecordChanges } from './record-changes'
+import { type Entity, type Layer, type SourceFile } from './schema'
 
 function source(sequence: string) {
     return Object.freeze(
@@ -38,6 +39,21 @@ describe('atomic record changes', () => {
         expectTypeOf<
             RecordChanges<(typeof current)[number]>['deletes']
         >().toEqualTypeOf<readonly SourceId[] | undefined>()
+        expectTypeOf<RecordChanges<SourceFile>['creates']>().toEqualTypeOf<
+            readonly SourceFile[] | undefined
+        >()
+        expectTypeOf<RecordChanges<SourceFile>['updates']>().toEqualTypeOf<
+            readonly SourceFile[] | undefined
+        >()
+        expectTypeOf<ChangeSet['entities']>().toEqualTypeOf<
+            RecordChanges<Entity> | undefined
+        >()
+        expectTypeOf<ChangeSet['layers']>().toEqualTypeOf<
+            RecordChanges<Layer> | undefined
+        >()
+        expectTypeOf<ChangeSet['sources']>().toEqualTypeOf<
+            RecordChanges<SourceFile> | undefined
+        >()
         expectTypeOf<ChangeSet['documentId']>().toEqualTypeOf<DocumentId>()
         expectTypeOf<ChangeSet['baseRevision']>().toBeNumber()
         expectTypeOf<ChangeSet['settings']>().toEqualTypeOf<
@@ -155,6 +171,18 @@ describe('atomic record changes', () => {
             }),
         ).toThrow(RangeError)
     })
+
+    it.each(['source:batch:01', 'layer:batch:0'])(
+        'rejects non-canonical or wrong-kind current IDs even for an omitted changes group: %s',
+        (id) => {
+            expect(() =>
+                applyRecordChanges([{ ...current[0]!, id: id as SourceId }], {
+                    ...options,
+                    changes: undefined,
+                }),
+            ).toThrow(RangeError)
+        },
+    )
 
     it.each([
         undefined,
