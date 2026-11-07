@@ -65,10 +65,21 @@ function expectDetached(actual: unknown, original: unknown): void {
     }
 }
 
-function readOnce<Value extends object>(value: Value): Value {
-    const reads = new Set<PropertyKey>()
+function readOnce(value: unknown): unknown {
+    if (typeof value !== 'object' || value === null) {
+        return value
+    }
 
-    return new Proxy(value, {
+    if (Array.isArray(value)) {
+        return value.map((item: unknown) => readOnce(item))
+    }
+
+    const reads = new Set<PropertyKey>()
+    const fields = Object.fromEntries(
+        Object.entries(value).map(([key, field]) => [key, readOnce(field)]),
+    )
+
+    return new Proxy(fields, {
         get(target, key) {
             expect(reads.has(key), `Repeated field read: ${String(key)}`).toBe(
                 false,
@@ -112,6 +123,7 @@ describe('entity and geometry admission', () => {
         [],
         {},
         { type: 'spline' },
+        { ...polyline, type: undefined },
         { ...line, start: null },
         { ...line, end: undefined },
         { ...line, end: { x: '1', y: 0 } },
@@ -232,15 +244,15 @@ describe('entity and geometry admission', () => {
         expect(admitEntity(input, tolerance)).toEqual(input)
     })
 
-    it('reads each entity, curve and coordinate field once before validating it', () => {
-        const geometry = readOnce({
-            ...line,
-            start: readOnce(line.start),
-            end: readOnce(line.end),
-        })
-
-        expect(
-            admitEntity(readOnce({ ...entity, geometry }), readOnce(tolerance)),
-        ).toEqual({ ...entity, geometry: line })
-    })
+    it.each(curves)(
+        'reads each entity, provenance, $type and coordinate field once before validating it',
+        (geometry) => {
+            expect(
+                admitEntity(
+                    readOnce({ ...entity, geometry }),
+                    readOnce(tolerance) as ModelTolerance,
+                ),
+            ).toEqual({ ...entity, geometry })
+        },
+    )
 })
