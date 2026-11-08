@@ -19,7 +19,6 @@ const source = { id: 'source:files:0', format: 'dxf', fileName: 'План.dxf' }
 const snapshot = {
     ...empty,
     revision: 17,
-    defaults: { ...empty.defaults, layerId: layer.id },
     layers: [empty.layers[0]!, layer],
     entities: [
         {

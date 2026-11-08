@@ -70,7 +70,11 @@ describe('atomic record changes', () => {
         { creates: undefined, updates: undefined, deletes: undefined },
         { creates: [], updates: [], deletes: [] },
     ])('treats omitted and empty lists as no-ops: %j', (changes) => {
-        expect(apply(changes)).toEqual({ records: current, changed: false })
+        expect(apply(changes)).toEqual({
+            records: current,
+            changed: false,
+            changedIds: new Set(),
+        })
     })
 
     it('replaces in place, deletes, then appends in create-list order without mutating inputs', () => {
@@ -85,6 +89,12 @@ describe('atomic record changes', () => {
         expect(result).toEqual({
             records: [replacement, current[2], later, created],
             changed: true,
+            changedIds: new Set([
+                later.id,
+                created.id,
+                replacement.id,
+                current[1]!.id,
+            ]),
         })
         expect(result.records[0]).not.toBe(replacement)
         expect(result.records[2]).not.toBe(later)
@@ -103,6 +113,7 @@ describe('atomic record changes', () => {
         expect(apply({ updates: [current[1]] })).toEqual({
             records: current,
             changed: true,
+            changedIds: new Set([current[1]!.id]),
         })
     })
 
@@ -110,6 +121,7 @@ describe('atomic record changes', () => {
         expect(apply({ deletes: current.map(({ id }) => id) })).toEqual({
             records: [],
             changed: true,
+            changedIds: new Set(current.map(({ id }) => id)),
         })
     })
 
@@ -248,7 +260,11 @@ describe('atomic record changes', () => {
                     admit: (value) => ({ ...(value as typeof record) }),
                     changes,
                 }),
-            ).toEqual({ records: [record], changed: true })
+            ).toEqual({
+                records: [record],
+                changed: true,
+                changedIds: new Set([record.id]),
+            })
         },
     )
 })

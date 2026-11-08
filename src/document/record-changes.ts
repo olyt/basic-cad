@@ -61,7 +61,11 @@ function writeRecords<Item extends { readonly id: string }>(
 export function applyRecordChanges<Item extends { readonly id: string }>(
     current: readonly Item[],
     options: RecordChangeOptions<Item>,
-): { readonly records: readonly Item[]; readonly changed: boolean } {
+): {
+    readonly records: readonly Item[]
+    readonly changed: boolean
+    readonly changedIds: ReadonlySet<string>
+} {
     const { changes, kind, admit } = options
 
     if (!isIdKind(kind)) {
@@ -94,5 +98,9 @@ export function applyRecordChanges<Item extends { readonly id: string }>(
         }
     }
 
-    return { records: [...records.values()], changed: batch.used.size > 0 }
+    return {
+        records: [...records.values()],
+        changed: batch.used.size > 0,
+        changedIds: batch.used,
+    }
 }

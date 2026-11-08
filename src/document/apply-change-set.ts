@@ -2,6 +2,7 @@ import { createModelTolerance } from '../geometry/tolerance'
 import { type ChangeSet } from './change-set'
 import { admitDocument } from './document-admission'
 import { admitEntity } from './entity-admission'
+import { assertLayerEdits } from './layer-rules'
 import { readNumber, readRecord } from './record'
 import { admitLayer, admitSourceFile } from './record-admission'
 import { applyRecordChanges } from './record-changes'
@@ -73,7 +74,7 @@ export function applyChangeSet(
         throw new RangeError('Document revision is exhausted.')
     }
 
-    return admitDocument({
+    const next = admitDocument({
         ...current,
         ...nextSettings,
         entities: entityBatch.records,
@@ -81,4 +82,11 @@ export function applyChangeSet(
         sources: sourceBatch.records,
         revision: current.revision + 1,
     })
+
+    assertLayerEdits(current, {
+        next,
+        changedEntityIds: entityBatch.changedIds,
+    })
+
+    return next
 }

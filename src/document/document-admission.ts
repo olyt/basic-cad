@@ -80,6 +80,10 @@ function assertDocumentConsistency(document: DrawingDocument): void {
 
     assertReference(defaults.layerId, layerIds)
 
+    if (layers.some((layer) => layer.id === defaults.layerId && layer.frozen)) {
+        throw new RangeError('The current layer cannot be frozen.')
+    }
+
     for (const { layerId, source } of entities) {
         assertReference(layerId, layerIds)
 
