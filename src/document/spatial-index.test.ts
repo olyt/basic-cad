@@ -39,6 +39,8 @@ describe('snapshot spatial index', () => {
             entities: [{ ...document.entities[0]!, geometry }],
         })
         const boxes = [
+            pointQuery(0, 0),
+            pointQuery(limit, -limit),
             pointQuery(limit, 0),
             pointQuery(limit * 2, limit),
             {
