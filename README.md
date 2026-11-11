@@ -28,3 +28,5 @@ Open the local URL printed by Vite. The server binds to `127.0.0.1`.
 | `npm run format`         | Apply Prettier formatting                              |
 | `npm test`               | Run Vitest once                                        |
 | `npm run test:watch`     | Run Vitest in watch mode                               |
+
+DXF fixture generation and checker tests use a pinned development-only Python environment.

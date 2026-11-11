@@ -1,0 +1,97 @@
+{
+    "codepage": "ANSI_1252",
+    "currentLayer": "0",
+    "editable": true,
+    "entities": [
+        {
+            "classification": "supported",
+            "color": "by-layer",
+            "geometry": {
+                "end": {
+                    "x": 4,
+                    "y": 3
+                },
+                "start": {
+                    "x": 0,
+                    "y": 0
+                },
+                "type": "line"
+            },
+            "handle": "31",
+            "layerName": "\u5899\u5c42",
+            "linetype": "by-layer",
+            "lineweight": "by-layer",
+            "sourceType": "LINE"
+        },
+        {
+            "classification": "supported",
+            "color": "by-layer",
+            "geometry": {
+                "center": {
+                    "x": 8,
+                    "y": 3
+                },
+                "radius": 2,
+                "type": "circle"
+            },
+            "handle": "32",
+            "layerName": "\u041f\u043b\u0430\u043d \u00e9",
+            "linetype": "by-layer",
+            "lineweight": "by-layer",
+            "sourceType": "CIRCLE"
+        }
+    ],
+    "entityScope": "modelspace",
+    "generator": {
+        "fixedMetadata": true,
+        "name": "ezdxf",
+        "python": "3.12.14",
+        "version": "1.4.4"
+    },
+    "layers": [
+        {
+            "color": 7,
+            "frozen": false,
+            "linetype": "continuous",
+            "lineweight": "default",
+            "locked": false,
+            "name": "0",
+            "visible": true
+        },
+        {
+            "color": 7,
+            "frozen": false,
+            "linetype": "continuous",
+            "lineweight": "default",
+            "locked": false,
+            "name": "Defpoints",
+            "visible": true
+        },
+        {
+            "color": 5,
+            "frozen": true,
+            "linetype": "continuous",
+            "lineweight": 35,
+            "locked": true,
+            "name": "\u5899\u5c42",
+            "visible": false
+        },
+        {
+            "color": 3,
+            "frozen": false,
+            "linetype": "continuous",
+            "lineweight": 50,
+            "locked": false,
+            "name": "\u041f\u043b\u0430\u043d \u00e9",
+            "visible": true
+        }
+    ],
+    "measurement": 1,
+    "modelTolerance": {
+        "distance": 1e-07
+    },
+    "schemaVersion": 1,
+    "sourceVersion": "AC1015",
+    "unitCode": 4,
+    "units": "millimeters"
+}

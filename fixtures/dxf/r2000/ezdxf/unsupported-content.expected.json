@@ -1,0 +1,102 @@
+{
+    "codepage": "ANSI_1252",
+    "currentLayer": "0",
+    "editable": false,
+    "entities": [
+        {
+            "classification": "supported",
+            "color": "by-layer",
+            "geometry": {
+                "end": {
+                    "x": 10,
+                    "y": 0
+                },
+                "start": {
+                    "x": 0,
+                    "y": 0
+                },
+                "type": "line"
+            },
+            "handle": "33",
+            "layerName": "0",
+            "linetype": "by-layer",
+            "lineweight": "by-layer",
+            "sourceType": "LINE"
+        },
+        {
+            "classification": "unsupported",
+            "color": "by-layer",
+            "geometry": null,
+            "handle": "34",
+            "layerName": "0",
+            "linetype": "by-layer",
+            "lineweight": "by-layer",
+            "sourceType": "TEXT"
+        },
+        {
+            "classification": "unsupported",
+            "color": "by-layer",
+            "geometry": null,
+            "handle": "35",
+            "layerName": "0",
+            "linetype": "by-layer",
+            "lineweight": "by-layer",
+            "sourceType": "INSERT"
+        },
+        {
+            "classification": "unsupported",
+            "color": 2,
+            "geometry": null,
+            "handle": "37",
+            "layerName": "0",
+            "linetype": "by-layer",
+            "lineweight": "by-layer",
+            "sourceType": "HATCH"
+        },
+        {
+            "classification": "unsupported",
+            "color": "by-layer",
+            "geometry": null,
+            "handle": "38",
+            "layerName": "0",
+            "linetype": "by-layer",
+            "lineweight": "by-layer",
+            "sourceType": "DIMENSION"
+        }
+    ],
+    "entityScope": "modelspace",
+    "generator": {
+        "fixedMetadata": true,
+        "name": "ezdxf",
+        "python": "3.12.14",
+        "version": "1.4.4"
+    },
+    "layers": [
+        {
+            "color": 7,
+            "frozen": false,
+            "linetype": "continuous",
+            "lineweight": "default",
+            "locked": false,
+            "name": "0",
+            "visible": true
+        },
+        {
+            "color": 7,
+            "frozen": false,
+            "linetype": "continuous",
+            "lineweight": "default",
+            "locked": false,
+            "name": "Defpoints",
+            "visible": true
+        }
+    ],
+    "measurement": 1,
+    "modelTolerance": {
+        "distance": 1e-07
+    },
+    "schemaVersion": 1,
+    "sourceVersion": "AC1015",
+    "unitCode": 4,
+    "units": "millimeters"
+}

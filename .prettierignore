@@ -3,3 +3,5 @@ dist/
 coverage/
 package-lock.json
 **/.venv/**
+# Generated DXF bytes and their pinned JSON companions
+fixtures/dxf/r2000/ezdxf/

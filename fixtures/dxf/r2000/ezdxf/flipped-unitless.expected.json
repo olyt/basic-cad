@@ -1,0 +1,134 @@
+{
+    "codepage": "ANSI_1252",
+    "currentLayer": "0",
+    "editable": true,
+    "entities": [
+        {
+            "classification": "converted",
+            "color": "by-layer",
+            "geometry": {
+                "end": {
+                    "x": 5,
+                    "y": 2
+                },
+                "start": {
+                    "x": 1,
+                    "y": 2
+                },
+                "type": "line"
+            },
+            "handle": "2F",
+            "layerName": "0",
+            "linetype": "by-layer",
+            "lineweight": "by-layer",
+            "sourceType": "LINE"
+        },
+        {
+            "classification": "converted",
+            "color": "by-layer",
+            "geometry": {
+                "center": {
+                    "x": -8,
+                    "y": 4
+                },
+                "radius": 2,
+                "type": "circle"
+            },
+            "handle": "30",
+            "layerName": "0",
+            "linetype": "by-layer",
+            "lineweight": "by-layer",
+            "sourceType": "CIRCLE"
+        },
+        {
+            "classification": "converted",
+            "color": "by-layer",
+            "geometry": {
+                "center": {
+                    "x": -3,
+                    "y": 4
+                },
+                "radius": 2,
+                "startAngle": 3.141592653589793,
+                "sweep": -1.5707963267948966,
+                "type": "arc"
+            },
+            "handle": "31",
+            "layerName": "0",
+            "linetype": "by-layer",
+            "lineweight": "by-layer",
+            "sourceType": "ARC"
+        },
+        {
+            "classification": "converted",
+            "color": "by-layer",
+            "geometry": {
+                "closed": false,
+                "segments": [
+                    {
+                        "center": {
+                            "x": -5,
+                            "y": 0
+                        },
+                        "radius": 5,
+                        "startAngle": 0,
+                        "sweep": -3.141592653589793,
+                        "type": "arc"
+                    },
+                    {
+                        "end": {
+                            "x": -10,
+                            "y": 10
+                        },
+                        "start": {
+                            "x": -10,
+                            "y": 0
+                        },
+                        "type": "line"
+                    }
+                ],
+                "type": "polyline"
+            },
+            "handle": "32",
+            "layerName": "0",
+            "linetype": "by-layer",
+            "lineweight": "by-layer",
+            "sourceType": "LWPOLYLINE"
+        }
+    ],
+    "entityScope": "modelspace",
+    "generator": {
+        "fixedMetadata": true,
+        "name": "ezdxf",
+        "python": "3.12.14",
+        "version": "1.4.4"
+    },
+    "layers": [
+        {
+            "color": 7,
+            "frozen": false,
+            "linetype": "continuous",
+            "lineweight": "default",
+            "locked": false,
+            "name": "0",
+            "visible": true
+        },
+        {
+            "color": 7,
+            "frozen": false,
+            "linetype": "continuous",
+            "lineweight": "default",
+            "locked": false,
+            "name": "Defpoints",
+            "visible": true
+        }
+    ],
+    "measurement": 0,
+    "modelTolerance": {
+        "distance": 1e-07
+    },
+    "schemaVersion": 1,
+    "sourceVersion": "AC1015",
+    "unitCode": 0,
+    "units": "unitless"
+}

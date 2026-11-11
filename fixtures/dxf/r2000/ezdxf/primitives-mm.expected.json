@@ -1,0 +1,107 @@
+{
+    "codepage": "ANSI_1252",
+    "currentLayer": "0",
+    "editable": true,
+    "entities": [
+        {
+            "classification": "supported",
+            "color": 2,
+            "geometry": {
+                "end": {
+                    "x": 11,
+                    "y": 2
+                },
+                "start": {
+                    "x": 1,
+                    "y": 2
+                },
+                "type": "line"
+            },
+            "handle": "30",
+            "layerName": "Outline",
+            "linetype": "by-layer",
+            "lineweight": 25,
+            "sourceType": "LINE"
+        },
+        {
+            "classification": "supported",
+            "color": "by-layer",
+            "geometry": {
+                "center": {
+                    "x": 20,
+                    "y": 5
+                },
+                "radius": 3,
+                "type": "circle"
+            },
+            "handle": "31",
+            "layerName": "0",
+            "linetype": "by-layer",
+            "lineweight": "by-layer",
+            "sourceType": "CIRCLE"
+        },
+        {
+            "classification": "supported",
+            "color": "by-layer",
+            "geometry": {
+                "center": {
+                    "x": 30,
+                    "y": 5
+                },
+                "radius": 4,
+                "startAngle": 6.1086523819801535,
+                "sweep": 0.3490658503988659,
+                "type": "arc"
+            },
+            "handle": "32",
+            "layerName": "0",
+            "linetype": "by-layer",
+            "lineweight": "by-layer",
+            "sourceType": "ARC"
+        }
+    ],
+    "entityScope": "modelspace",
+    "generator": {
+        "fixedMetadata": true,
+        "name": "ezdxf",
+        "python": "3.12.14",
+        "version": "1.4.4"
+    },
+    "layers": [
+        {
+            "color": 7,
+            "frozen": false,
+            "linetype": "continuous",
+            "lineweight": "default",
+            "locked": false,
+            "name": "0",
+            "visible": true
+        },
+        {
+            "color": 7,
+            "frozen": false,
+            "linetype": "continuous",
+            "lineweight": "default",
+            "locked": false,
+            "name": "Defpoints",
+            "visible": true
+        },
+        {
+            "color": 3,
+            "frozen": false,
+            "linetype": "continuous",
+            "lineweight": 35,
+            "locked": false,
+            "name": "Outline",
+            "visible": true
+        }
+    ],
+    "measurement": 1,
+    "modelTolerance": {
+        "distance": 1e-07
+    },
+    "schemaVersion": 1,
+    "sourceVersion": "AC1015",
+    "unitCode": 4,
+    "units": "millimeters"
+}

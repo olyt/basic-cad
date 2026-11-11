@@ -11,11 +11,13 @@ const python = join(
     process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python',
 )
 const args = process.argv.slice(2)
+const script = args[0] === '--fixtures' ? 'generate_fixtures.py' : 'check.py'
+const scriptArgs = args[0] === '--fixtures' ? args.slice(1) : args
 const result = spawnSync(
     python,
     args[0] === '--test'
         ? ['-m', 'unittest', 'discover', '-s', root, '-p', 'test_*.py']
-        : [join(root, 'check.py'), ...args],
+        : [join(root, script), ...scriptArgs],
     {
         stdio: 'inherit',
         env: {
