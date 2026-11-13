@@ -50,10 +50,13 @@ function* lines(bytes: Uint8Array): Generator<string> {
     }
 }
 
-function groupCode(line: string): number | undefined {
+export function parseGroupCode(line: string): number | undefined {
     const trimmed = line.trim()
+    const code = Number(trimmed)
 
-    return /^-?\d+$/.test(trimmed) ? Number(trimmed) : undefined
+    return /^[+-]?\d+$/.test(trimmed) && Number.isSafeInteger(code)
+        ? code
+        : undefined
 }
 
 function* groupPairs(
@@ -68,7 +71,7 @@ function* groupPairs(
             return
         }
 
-        yield [groupCode(code), value.value.trim()]
+        yield [parseGroupCode(code), value.value.trim()]
     }
 }
 
