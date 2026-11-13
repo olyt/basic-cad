@@ -28,5 +28,8 @@ Open the local URL printed by Vite. The server binds to `127.0.0.1`.
 | `npm run format`         | Apply Prettier formatting                              |
 | `npm test`               | Run Vitest once                                        |
 | `npm run test:watch`     | Run Vitest in watch mode                               |
+| `npm run dxf:check`      | Inspect one DXF file with ezdxf (`-- file.dxf`)        |
+| `npm run fixtures:dxf`   | Regenerate the ezdxf fixtures; `-- --check` verifies   |
+| `npm run test:dxf-check` | Run the DXF checker and fixture tests                  |
 
-DXF fixture generation and checker tests use a pinned development-only Python environment.
+The three DXF commands use a pinned development-only Python environment; follow

@@ -1,0 +1,145 @@
+{
+    "admissionNote": "Native owner omissions and orphan PLOTSETTINGS are unqualified; preserve original bytes pending CAD-008/CAD-051 policy.",
+    "codepage": "ANSI_1252",
+    "currentLayer": "0",
+    "editable": false,
+    "entities": [
+        {
+            "classification": "supported",
+            "color": "by-layer",
+            "geometry": {
+                "end": {
+                    "x": 5,
+                    "y": -5
+                },
+                "start": {
+                    "x": -5,
+                    "y": -5
+                },
+                "type": "line"
+            },
+            "handle": "4E",
+            "layerName": "Outline",
+            "linetype": "by-layer",
+            "lineweight": "by-layer",
+            "sourceType": "LINE"
+        },
+        {
+            "classification": "supported",
+            "color": "by-layer",
+            "geometry": {
+                "center": {
+                    "x": 0,
+                    "y": 0
+                },
+                "radius": 2,
+                "type": "circle"
+            },
+            "handle": "4F",
+            "layerName": "Outline",
+            "linetype": "by-layer",
+            "lineweight": "by-layer",
+            "sourceType": "CIRCLE"
+        },
+        {
+            "classification": "supported",
+            "color": 1,
+            "geometry": {
+                "end": {
+                    "x": 5,
+                    "y": 5
+                },
+                "start": {
+                    "x": -5,
+                    "y": 5
+                },
+                "type": "line"
+            },
+            "handle": "50",
+            "layerName": "0",
+            "linetype": "by-layer",
+            "lineweight": "by-layer",
+            "sourceType": "LINE"
+        }
+    ],
+    "entityScope": "modelspace",
+    "expectedAudit": {
+        "errors": [],
+        "fixes": [
+            {
+                "code": 202,
+                "message": "Deleted PLOTSETTINGS(#51) entity without owner handle."
+            }
+        ]
+    },
+    "generator": {
+        "authoredDate": "2026-11-11",
+        "buildDate": "2026-10-17",
+        "compiler": "Clang 17.0.0",
+        "method": "GUI",
+        "name": "LibreCAD",
+        "platform": "macOS arm64",
+        "qt": "5.15.19",
+        "version": "2.2.1.6"
+    },
+    "layers": [
+        {
+            "color": 7,
+            "frozen": false,
+            "linetype": "continuous",
+            "lineweight": 25,
+            "locked": false,
+            "name": "0",
+            "visible": true
+        },
+        {
+            "color": 3,
+            "frozen": true,
+            "linetype": "continuous",
+            "lineweight": 35,
+            "locked": true,
+            "name": "Outline",
+            "visible": false
+        }
+    ],
+    "measurement": 1,
+    "modelTolerance": {
+        "distance": 1e-07
+    },
+    "nativeQuirks": {
+        "loadCreatedLayers": [
+            "Defpoints"
+        ],
+        "missingEntityOwners": [
+            "4E",
+            "4F",
+            "50"
+        ],
+        "ownerlessPlotSettings": "51"
+    },
+    "schemaVersion": 1,
+    "sourceLayers": [
+        {
+            "color": 7,
+            "frozen": false,
+            "linetype": "continuous",
+            "lineweight": 25,
+            "locked": false,
+            "name": "0",
+            "visible": true
+        },
+        {
+            "color": 3,
+            "frozen": true,
+            "linetype": "continuous",
+            "lineweight": 35,
+            "locked": true,
+            "name": "Outline",
+            "visible": true
+        }
+    ],
+    "sourceSha256": "b4cb638238988d612faa86999312a45f98c78a13ba3d699004499ac4a50b4531",
+    "sourceVersion": "AC1015",
+    "unitCode": 0,
+    "units": "unitless"
+}

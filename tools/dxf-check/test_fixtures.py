@@ -16,6 +16,23 @@ from generate_fixtures import CORPUS
 WEIGHTS = {-1: "by-layer", -2: "by-block", -3: "default"}
 LINETYPES = {"BYLAYER": "by-layer", "BYBLOCK": "by-block", "CONTINUOUS": "continuous"}
 GEOMETRY_TYPES = {"LINE": "line", "CIRCLE": "circle", "ARC": "arc", "LWPOLYLINE": "polyline"}
+UNITS = {0: "unitless", 1: "inches", 4: "millimeters"}
+NORMALS = {(0, 0, 1): "supported", (0, 0, -1): "converted"}
+
+
+def classification(entity):
+    if entity.dxftype() not in GEOMETRY_TYPES:
+        return "unsupported"
+    return NORMALS.get(tuple(entity.dxf.extrusion), "unsupported")
+
+
+def normalized_layer(properties):
+    return {**properties, "visible": properties["visible"] and not properties["frozen"]}
+
+
+def angles_normalized(geometry):
+    segments = geometry["segments"] if geometry["type"] == "polyline" else [geometry]
+    return all(0 <= segment["startAngle"] < math.tau for segment in segments if segment["type"] == "arc")
 
 
 def layer_properties(layer):
@@ -110,11 +127,12 @@ class FixtureTests(unittest.TestCase):
             self.assertEqual(document.units, expected["unitCode"])
             self.assertEqual(document.header["$CLAYER"], expected["currentLayer"])
             self.assertEqual(document.header["$MEASUREMENT"], expected["measurement"])
+            self.assertEqual(expected["units"], UNITS[document.units])
             unit_codes.add(document.units)
             layers = {decode_dxf_unicode(layer.dxf.name): layer for layer in document.layers}
             self.assertEqual(set(layers), {layer["name"] for layer in expected["layers"]})
             for layer in expected["layers"]:
-                self.assertEqual(layer_properties(layers[layer["name"]]), layer)
+                self.assertEqual(normalized_layer(layer_properties(layers[layer["name"]])), layer)
             entities = list(document.modelspace())
             if path.name == "flipped-unitless.expected.json":
                 self.assertEqual({entity.dxftype() for entity in entities}, set(GEOMETRY_TYPES))
@@ -123,11 +141,14 @@ class FixtureTests(unittest.TestCase):
             for actual, item in zip(entities, expected["entities"]):
                 properties = entity_properties(actual)
                 self.assertEqual(properties, {key: item[key] for key in properties})
+                self.assertEqual(classification(actual), item["classification"], (path.name, item["handle"]))
                 if item["geometry"] is None:
                     unsupported.add(item["sourceType"])
-                    self.assertFalse(expected["editable"])
                 else:
                     self.assertTrue(geometry_matches(actual, item["geometry"]), (path.name, item["handle"]))
+                    self.assertTrue(angles_normalized(item["geometry"]), (path.name, item["handle"]))
+            supported = all(item["classification"] != "unsupported" for item in expected["entities"])
+            self.assertEqual(expected["editable"], supported, path.name)
             count += len(entities)
             audit = document.audit()
             self.assertEqual((len(audit.errors), len(audit.fixes)), (0, 0), path.name)

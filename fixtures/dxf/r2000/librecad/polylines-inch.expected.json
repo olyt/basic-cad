@@ -1,0 +1,165 @@
+{
+    "admissionNote": "Native owner omissions and orphan PLOTSETTINGS are unqualified; preserve original bytes pending CAD-008/CAD-051 policy.",
+    "codepage": "ANSI_1252",
+    "currentLayer": "0",
+    "editable": false,
+    "entities": [
+        {
+            "classification": "supported",
+            "color": "by-layer",
+            "geometry": {
+                "closed": false,
+                "segments": [
+                    {
+                        "end": {
+                            "x": 10,
+                            "y": 0
+                        },
+                        "start": {
+                            "x": 0,
+                            "y": 0
+                        },
+                        "type": "line"
+                    },
+                    {
+                        "end": {
+                            "x": 10,
+                            "y": 10
+                        },
+                        "start": {
+                            "x": 10,
+                            "y": 0
+                        },
+                        "type": "line"
+                    }
+                ],
+                "type": "polyline"
+            },
+            "handle": "4D",
+            "layerName": "0",
+            "linetype": "by-layer",
+            "lineweight": "by-layer",
+            "sourceType": "LWPOLYLINE"
+        },
+        {
+            "classification": "supported",
+            "color": "by-layer",
+            "geometry": {
+                "closed": true,
+                "segments": [
+                    {
+                        "end": {
+                            "x": 30,
+                            "y": 0
+                        },
+                        "start": {
+                            "x": 20,
+                            "y": 0
+                        },
+                        "type": "line"
+                    },
+                    {
+                        "end": {
+                            "x": 30,
+                            "y": 10
+                        },
+                        "start": {
+                            "x": 30,
+                            "y": 0
+                        },
+                        "type": "line"
+                    },
+                    {
+                        "end": {
+                            "x": 20,
+                            "y": 10
+                        },
+                        "start": {
+                            "x": 30,
+                            "y": 10
+                        },
+                        "type": "line"
+                    },
+                    {
+                        "end": {
+                            "x": 20,
+                            "y": 0
+                        },
+                        "start": {
+                            "x": 20,
+                            "y": 10
+                        },
+                        "type": "line"
+                    }
+                ],
+                "type": "polyline"
+            },
+            "handle": "4E",
+            "layerName": "0",
+            "linetype": "by-layer",
+            "lineweight": "by-layer",
+            "sourceType": "LWPOLYLINE"
+        }
+    ],
+    "entityScope": "modelspace",
+    "expectedAudit": {
+        "errors": [],
+        "fixes": [
+            {
+                "code": 202,
+                "message": "Deleted PLOTSETTINGS(#4F) entity without owner handle."
+            }
+        ]
+    },
+    "generator": {
+        "authoredDate": "2026-11-11",
+        "buildDate": "2026-10-17",
+        "compiler": "Clang 17.0.0",
+        "method": "GUI",
+        "name": "LibreCAD",
+        "platform": "macOS arm64",
+        "qt": "5.15.19",
+        "version": "2.2.1.6"
+    },
+    "layers": [
+        {
+            "color": 7,
+            "frozen": false,
+            "linetype": "continuous",
+            "lineweight": 25,
+            "locked": false,
+            "name": "0",
+            "visible": true
+        }
+    ],
+    "measurement": 0,
+    "modelTolerance": {
+        "distance": 1e-07
+    },
+    "nativeQuirks": {
+        "loadCreatedLayers": [
+            "Defpoints"
+        ],
+        "missingEntityOwners": [
+            "4D",
+            "4E"
+        ],
+        "ownerlessPlotSettings": "4F"
+    },
+    "schemaVersion": 1,
+    "sourceLayers": [
+        {
+            "color": 7,
+            "frozen": false,
+            "linetype": "continuous",
+            "lineweight": 25,
+            "locked": false,
+            "name": "0",
+            "visible": true
+        }
+    ],
+    "sourceSha256": "510871b61de7431efd69d9656070d725d1b092285650d11b95863c69a226dcf1",
+    "sourceVersion": "AC1015",
+    "unitCode": 1,
+    "units": "inches"
+}

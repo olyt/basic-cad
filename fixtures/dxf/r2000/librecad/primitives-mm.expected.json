@@ -1,0 +1,126 @@
+{
+    "admissionNote": "Native owner omissions and orphan PLOTSETTINGS are unqualified; preserve original bytes pending CAD-008/CAD-051 policy.",
+    "codepage": "ANSI_1252",
+    "currentLayer": "0",
+    "editable": false,
+    "entities": [
+        {
+            "classification": "supported",
+            "color": "by-layer",
+            "geometry": {
+                "end": {
+                    "x": 11,
+                    "y": 2
+                },
+                "start": {
+                    "x": 1,
+                    "y": 2
+                },
+                "type": "line"
+            },
+            "handle": "4D",
+            "layerName": "0",
+            "linetype": "by-layer",
+            "lineweight": "by-layer",
+            "sourceType": "LINE"
+        },
+        {
+            "classification": "supported",
+            "color": "by-layer",
+            "geometry": {
+                "center": {
+                    "x": 20,
+                    "y": 5
+                },
+                "radius": 3,
+                "type": "circle"
+            },
+            "handle": "4E",
+            "layerName": "0",
+            "linetype": "by-layer",
+            "lineweight": "by-layer",
+            "sourceType": "CIRCLE"
+        },
+        {
+            "classification": "supported",
+            "color": "by-layer",
+            "geometry": {
+                "center": {
+                    "x": 30,
+                    "y": 5
+                },
+                "radius": 4,
+                "startAngle": 6.1086523819801535,
+                "sweep": 0.3490658503988659,
+                "type": "arc"
+            },
+            "handle": "4F",
+            "layerName": "0",
+            "linetype": "by-layer",
+            "lineweight": "by-layer",
+            "sourceType": "ARC"
+        }
+    ],
+    "entityScope": "modelspace",
+    "expectedAudit": {
+        "errors": [],
+        "fixes": [
+            {
+                "code": 202,
+                "message": "Deleted PLOTSETTINGS(#50) entity without owner handle."
+            }
+        ]
+    },
+    "generator": {
+        "authoredDate": "2026-11-11",
+        "buildDate": "2026-10-17",
+        "compiler": "Clang 17.0.0",
+        "method": "GUI",
+        "name": "LibreCAD",
+        "platform": "macOS arm64",
+        "qt": "5.15.19",
+        "version": "2.2.1.6"
+    },
+    "layers": [
+        {
+            "color": 7,
+            "frozen": false,
+            "linetype": "continuous",
+            "lineweight": 25,
+            "locked": false,
+            "name": "0",
+            "visible": true
+        }
+    ],
+    "measurement": 1,
+    "modelTolerance": {
+        "distance": 1e-07
+    },
+    "nativeQuirks": {
+        "loadCreatedLayers": [
+            "Defpoints"
+        ],
+        "missingEntityOwners": [
+            "4D",
+            "4E",
+            "4F"
+        ],
+        "ownerlessPlotSettings": "50"
+    },
+    "schemaVersion": 1,
+    "sourceLayers": [
+        {
+            "color": 7,
+            "frozen": false,
+            "linetype": "continuous",
+            "lineweight": 25,
+            "locked": false,
+            "name": "0",
+            "visible": true
+        }
+    ],
+    "sourceSha256": "fc7f28efb7f1f2c12b575d347f0f9add2441739cf1d8d4d7464cb51394ecd377",
+    "sourceVersion": "AC1015",
+    "unitCode": 4,
+    "units": "millimeters"
+}
