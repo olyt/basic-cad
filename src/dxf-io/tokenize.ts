@@ -63,7 +63,7 @@ function tokenError(line: number, message: string): TokenError {
     return { kind: 'error', line, message }
 }
 
-function quoted(text: string): string {
+export function quoted(text: string): string {
     return JSON.stringify(
         text.length > QUOTED_LENGTH ? `${text.slice(0, QUOTED_LENGTH)}…` : text,
     )
