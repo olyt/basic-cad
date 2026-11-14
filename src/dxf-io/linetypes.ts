@@ -1,4 +1,4 @@
-import { type Linetype } from '../document/properties'
+import { layerNameKey, type Linetype } from '../document/properties'
 import { type DxfTable, type DxfTableRecord } from './tables'
 import { decodeUnicodeEscapes } from './unicode-escape'
 
@@ -29,10 +29,6 @@ function nameOf(record: DxfTableRecord): string | undefined {
     return names.length === 1 && typeof value === 'string'
         ? decodeUnicodeEscapes(value)
         : undefined
-}
-
-function nameKey(name: string): string {
-    return name.trim().toLowerCase().toUpperCase()
 }
 
 function definitionIssue(record: DxfTableRecord): string | undefined {
@@ -79,7 +75,7 @@ function classify(
         return { ...source, reason: 'LTYPE needs exactly one name group.' }
     }
 
-    if (names.get(nameKey(name)) !== 1) {
+    if (names.get(layerNameKey(name)) !== 1) {
         return { ...source, reason: 'Duplicate linetype name.' }
     }
 
@@ -99,7 +95,7 @@ export function readDxfLinetypes(table: DxfTable): readonly DxfLinetype[] {
         const name = nameOf(record)
 
         if (name !== undefined) {
-            const key = nameKey(name)
+            const key = layerNameKey(name)
 
             names.set(key, (names.get(key) ?? 0) + 1)
         }

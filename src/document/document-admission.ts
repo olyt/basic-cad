@@ -1,7 +1,7 @@
 import { createModelTolerance } from '../geometry/tolerance'
 import { admitEntity } from './entity-admission'
 import { parseId } from './id'
-import { isLineweightValue } from './properties'
+import { isLineweightValue, layerNameKey } from './properties'
 import { readNumber, readRecord, readText } from './record'
 import {
     admitEntityProperties,
@@ -68,9 +68,8 @@ function assertDocumentConsistency(document: DrawingDocument): void {
         entities.map((entity) => entity.id),
         'Entity IDs',
     )
-    // Lowercasing first folds signs such as Kelvin K; uppercasing then matches ß with SS.
     uniqueValues(
-        layers.map((layer) => layer.name.trim().toLowerCase().toUpperCase()),
+        layers.map((layer) => layerNameKey(layer.name)),
         'Layer names',
     )
 

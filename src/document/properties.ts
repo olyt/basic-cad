@@ -25,6 +25,11 @@ const linetypes: ReadonlySet<unknown> = new Set(LINETYPES)
 const unwritableLayerName = /[<>/\\":;?*|,=`\p{Cc}\p{Cs}\p{Zl}\p{Zp}]/u
 const blankLayerName = /^[\s\p{Cf}]*$/u
 
+// Lowercasing folds compatibility letters; uppercasing also matches ß with SS.
+export function layerNameKey(name: string): string {
+    return name.trim().toLowerCase().toUpperCase()
+}
+
 export function isLayerName(value: unknown): value is string {
     return (
         typeof value === 'string' &&

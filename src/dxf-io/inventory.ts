@@ -226,7 +226,9 @@ function addCount(counts: Map<string, number>, name: string): void {
 }
 
 // Yields groups outside application groups (102) and XDATA, plus the groups that open them.
-function* attributeTokens(tokens: readonly DxfToken[]): Generator<DxfToken> {
+export function* attributeTokens(
+    tokens: readonly DxfToken[],
+): Generator<DxfToken> {
     let inAppGroup = false
     let inXdata = false
 

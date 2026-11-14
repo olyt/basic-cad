@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 import { decodeDxfBytes } from '../src/dxf-io/decode-bytes'
 import { readDxfHeader, type DxfHeader } from '../src/dxf-io/header'
 import { inventoryDxf, type DxfInventory } from '../src/dxf-io/inventory'
+import { readDxfLayers } from '../src/dxf-io/layers'
 import { readDxfLinetypes } from '../src/dxf-io/linetypes'
 import { readDxfTables } from '../src/dxf-io/tables'
 import { tokenizeDxf } from '../src/dxf-io/tokenize'
@@ -64,6 +65,13 @@ function inventoryOf(path: string): DxfInventory {
     expect(
         tables.tables.find(({ name }) => name === 'LAYER')?.entries,
     ).toHaveLength((expected.sourceLayers ?? expected.layers).length)
+
+    const layers = readDxfLayers(
+        tables.tables.find(({ name }) => name === 'LAYER')!,
+        definitions,
+    )
+
+    expect(layers.map(({ value }) => value)).toEqual(expected.layers)
 
     expect(readDxfHeader(tokens.tokens)).toEqual({
         kind: 'header',
