@@ -5,6 +5,8 @@ import { describe, expect, it } from 'vitest'
 import { decodeDxfBytes } from '../src/dxf-io/decode-bytes'
 import { readDxfHeader, type DxfHeader } from '../src/dxf-io/header'
 import { inventoryDxf, type DxfInventory } from '../src/dxf-io/inventory'
+import { readDxfLinetypes } from '../src/dxf-io/linetypes'
+import { readDxfTables } from '../src/dxf-io/tables'
 import { tokenizeDxf } from '../src/dxf-io/tokenize'
 import { decodeText } from '../src/file-io/text-codec'
 
@@ -41,6 +43,27 @@ function inventoryOf(path: string): DxfInventory {
     }
 
     const expected = manifestOf(path)
+    const tables = readDxfTables(tokens.tokens)
+
+    if (tables.kind !== 'tables') {
+        throw new Error(`Line ${tables.line}: ${tables.message}`)
+    }
+
+    const definitions = readDxfLinetypes(
+        tables.tables.find(({ name }) => name === 'LTYPE')!,
+    )
+
+    expect(
+        definitions
+            .flatMap(({ value }) => (value === undefined ? [] : [value]))
+            .sort(),
+    ).toEqual(['by-block', 'by-layer', 'continuous'])
+    expect(
+        definitions.filter(({ reason }) => reason !== undefined),
+    ).toHaveLength(path.startsWith('librecad/') ? 24 : 0)
+    expect(
+        tables.tables.find(({ name }) => name === 'LAYER')?.entries,
+    ).toHaveLength((expected.sourceLayers ?? expected.layers).length)
 
     expect(readDxfHeader(tokens.tokens)).toEqual({
         kind: 'header',

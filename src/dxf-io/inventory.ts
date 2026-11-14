@@ -64,7 +64,7 @@ export type InventoriedDxf =
 
 type InventoryError = Extract<InventoriedDxf, { kind: 'error' }>
 
-interface DxfRecord {
+export interface DxfRecord {
     readonly type: string
     readonly line: number
     // Groups after the record's 0 group, without comments.
@@ -176,7 +176,7 @@ function inventoryError(line: number, message: string): InventoryError {
     return { kind: 'error', line, message }
 }
 
-function* records(tokens: readonly DxfToken[]): Generator<DxfRecord> {
+export function* records(tokens: readonly DxfToken[]): Generator<DxfRecord> {
     let record: DxfRecord | undefined
     let groups: DxfToken[] = []
 
