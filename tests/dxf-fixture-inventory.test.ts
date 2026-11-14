@@ -3,11 +3,12 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { decodeDxfBytes } from '../src/dxf-io/decode-bytes'
+import { readDxfHeader, type DxfHeader } from '../src/dxf-io/header'
 import { inventoryDxf, type DxfInventory } from '../src/dxf-io/inventory'
 import { tokenizeDxf } from '../src/dxf-io/tokenize'
 import { decodeText } from '../src/file-io/text-codec'
 
-interface Manifest {
+interface Manifest extends DxfHeader {
     readonly layers: readonly unknown[]
     readonly sourceLayers?: readonly unknown[]
     readonly entities: readonly {
@@ -39,6 +40,20 @@ function inventoryOf(path: string): DxfInventory {
         throw new Error(`Line ${tokens.line}: ${tokens.message}`)
     }
 
+    const expected = manifestOf(path)
+
+    expect(readDxfHeader(tokens.tokens)).toEqual({
+        kind: 'header',
+        header: {
+            sourceVersion: expected.sourceVersion,
+            currentLayer: expected.currentLayer,
+            codepage: expected.codepage,
+            unitCode: expected.unitCode,
+            units: expected.units,
+            measurement: expected.measurement,
+        },
+    })
+
     const result = inventoryDxf(tokens.tokens)
 
     if (result.kind !== 'inventory') {
@@ -68,43 +83,53 @@ function typeCounts(types: readonly string[]) {
 }
 
 describe('DXF fixture inventory', () => {
-    it.each(fixtures)('inventories %s against its expected content', (path) => {
-        const inventory = inventoryOf(path)
-        const manifest = manifestOf(path)
-        const layerTable = inventory.tables.find(({ name }) => name === 'LAYER')
-        const unsupported = (kind: string) =>
-            inventory.unsupported.filter((item) => item.kind === kind)
+    it.each(fixtures)(
+        'reads %s header and inventory against expectations',
+        (path) => {
+            const inventory = inventoryOf(path)
+            const manifest = manifestOf(path)
+            const layerTable = inventory.tables.find(
+                ({ name }) => name === 'LAYER',
+            )
+            const unsupported = (kind: string) =>
+                inventory.unsupported.filter((item) => item.kind === kind)
 
-        expect(inventory.sections.map(({ name }) => name)).toEqual([
-            'HEADER',
-            'CLASSES',
-            'TABLES',
-            'BLOCKS',
-            'ENTITIES',
-            'OBJECTS',
-        ])
-        expect(inventory.entities).toEqual(
-            typeCounts(manifest.entities.map(({ sourceType }) => sourceType)),
-        )
-        expect(layerTable?.entries).toBe(
-            (manifest.sourceLayers ?? manifest.layers).length,
-        )
-        expect(unsupported('entity')).toEqual(
-            manifest.entities
-                .filter(
-                    ({ classification }) => classification === 'unsupported',
-                )
-                .map(({ sourceType, handle }) =>
-                    expect.objectContaining({ name: sourceType, handle }),
+            expect(inventory.sections.map(({ name }) => name)).toEqual([
+                'HEADER',
+                'CLASSES',
+                'TABLES',
+                'BLOCKS',
+                'ENTITIES',
+                'OBJECTS',
+            ])
+            expect(inventory.entities).toEqual(
+                typeCounts(
+                    manifest.entities.map(({ sourceType }) => sourceType),
                 ),
-        )
-        expect(
-            inventory.unsupported.flatMap((item) =>
-                item.kind === 'block' ? [item.name] : [],
-            ),
-        ).toEqual(fixtureBlocks.get(path) ?? [])
-        expect([...unsupported('section'), ...unsupported('xref')]).toEqual([])
-    })
+            )
+            expect(layerTable?.entries).toBe(
+                (manifest.sourceLayers ?? manifest.layers).length,
+            )
+            expect(unsupported('entity')).toEqual(
+                manifest.entities
+                    .filter(
+                        ({ classification }) =>
+                            classification === 'unsupported',
+                    )
+                    .map(({ sourceType, handle }) =>
+                        expect.objectContaining({ name: sourceType, handle }),
+                    ),
+            )
+            expect(
+                inventory.unsupported.flatMap((item) =>
+                    item.kind === 'block' ? [item.name] : [],
+                ),
+            ).toEqual(fixtureBlocks.get(path) ?? [])
+            expect([...unsupported('section'), ...unsupported('xref')]).toEqual(
+                [],
+            )
+        },
+    )
 
     it('finds no unsupported entity groups, and only the ezdxf Defpoints plot flag', () => {
         for (const path of fixtures) {
