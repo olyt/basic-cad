@@ -6,19 +6,14 @@ import {
 } from '../document/properties'
 import { type Layer } from '../document/schema'
 import { attributeTokens } from './inventory'
+import { type DxfIssue, type DxfIssueKind } from './issue'
 import { type DxfLinetype } from './linetypes'
 import { type DxfTable, type DxfTableRecord } from './tables'
 import { type DxfToken } from './tokenize'
 import { decodeUnicodeEscapes } from './unicode-escape'
 
-export type LayerIssueKind = 'converted' | 'unsupported'
-
-export interface LayerIssue {
-    readonly kind: LayerIssueKind
-    readonly code: number
-    readonly line: number
-    readonly message: string
-}
+export type LayerIssueKind = DxfIssueKind
+export type LayerIssue = DxfIssue
 
 export interface DxfLayer {
     readonly record: DxfTableRecord

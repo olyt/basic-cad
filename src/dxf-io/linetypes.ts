@@ -9,11 +9,12 @@ export interface DxfLinetype {
     readonly reason?: string
 }
 
-const LINETYPE_NAMES: ReadonlyMap<string, Linetype> = new Map([
+export const LINETYPE_NAMES: ReadonlyMap<string, Linetype> = new Map([
     ['BYLAYER', 'by-layer'],
     ['BYBLOCK', 'by-block'],
     ['CONTINUOUS', 'continuous'],
 ])
+
 const REQUIRED_NUMBERS: ReadonlyMap<number, readonly number[]> = new Map([
     [70, [0, 64]],
     [72, [65]],

@@ -3,8 +3,13 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { decodeDxfBytes } from '../src/dxf-io/decode-bytes'
+import { readDxfEntityProperties } from '../src/dxf-io/entity-properties'
 import { readDxfHeader, type DxfHeader } from '../src/dxf-io/header'
-import { inventoryDxf, type DxfInventory } from '../src/dxf-io/inventory'
+import {
+    inventoryDxf,
+    records,
+    type DxfInventory,
+} from '../src/dxf-io/inventory'
 import { readDxfLayers } from '../src/dxf-io/layers'
 import { readDxfLinetypes } from '../src/dxf-io/linetypes'
 import { readDxfTables } from '../src/dxf-io/tables'
@@ -18,6 +23,10 @@ interface Manifest extends DxfHeader {
         readonly handle: string
         readonly sourceType: string
         readonly classification: string
+        readonly layerName: string
+        readonly color: unknown
+        readonly lineweight: unknown
+        readonly linetype: string
     }[]
 }
 
@@ -72,6 +81,29 @@ function inventoryOf(path: string): DxfInventory {
     )
 
     expect(layers.map(({ value }) => value)).toEqual(expected.layers)
+
+    const sourceRecords = Array.from(records(tokens.tokens))
+
+    for (const entity of expected.entities) {
+        const record = sourceRecords.find(({ tokens }) =>
+            tokens.some(
+                ({ code, value }) => code === 5 && value === entity.handle,
+            ),
+        )!
+        const properties = readDxfEntityProperties(record, {
+            layers,
+            linetypes: definitions,
+        })
+        const { layerName, color, lineweight, linetype } = entity
+
+        expect(properties.handle).toBe(entity.handle)
+        expect(properties.value).toEqual({
+            layerName,
+            color,
+            lineweight,
+            linetype,
+        })
+    }
 
     expect(readDxfHeader(tokens.tokens)).toEqual({
         kind: 'header',
