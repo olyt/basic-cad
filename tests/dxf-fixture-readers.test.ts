@@ -11,11 +11,28 @@ import { readDxfHeader, type DxfHeader } from '../src/dxf-io/header'
 import { records } from '../src/dxf-io/inventory'
 import { readDxfLayers } from '../src/dxf-io/layers'
 import { readDxfLinetypes } from '../src/dxf-io/linetypes'
+import { readDxfPrimitive } from '../src/dxf-io/primitives'
 import { readDxfTables } from '../src/dxf-io/tables'
 import { tokenizeDxf, type DxfToken } from '../src/dxf-io/tokenize'
 import { decodeText } from '../src/file-io/text-codec'
 
+interface Point {
+    readonly x: number
+    readonly y: number
+}
+
+interface Geometry {
+    readonly type: string
+    readonly start?: Point
+    readonly end?: Point
+    readonly center?: Point
+    readonly radius?: number
+    readonly startAngle?: number
+    readonly sweep?: number
+}
+
 interface Manifest extends DxfHeader {
+    readonly modelTolerance: { readonly distance: number }
     readonly layers: readonly {
         readonly name: string
         readonly frozen: boolean
@@ -23,6 +40,9 @@ interface Manifest extends DxfHeader {
     readonly sourceLayers?: readonly unknown[]
     readonly entities: readonly {
         readonly handle: string
+        readonly sourceType: string
+        readonly classification: string
+        readonly geometry: Geometry | null
         readonly layerName: string
         readonly color: unknown
         readonly lineweight: unknown
@@ -80,6 +100,48 @@ function tablesOf(path: string) {
     }
 }
 
+function referencesOf(path: string) {
+    const { tokens, linetypes, layers } = tablesOf(path)
+    const sourceRecords = Array.from(records(tokens))
+
+    return {
+        references: indexDxfReferences({ layers, linetypes }),
+        recordOf: (handle: string) =>
+            sourceRecords.find(({ tokens }) =>
+                tokens.some(
+                    ({ code, value }) => code === 5 && value === handle,
+                ),
+            )!,
+    }
+}
+
+// Arc angles are scaled by their radius so every difference is a distance.
+function deviation(actual: Geometry, expected: Geometry): number {
+    const positions = (geometry: Geometry) => {
+        const { start, end, center, radius = 0 } = geometry
+        const { startAngle = 0, sweep = 0 } = geometry
+
+        return [
+            start?.x,
+            start?.y,
+            end?.x,
+            end?.y,
+            center?.x,
+            center?.y,
+            radius,
+            radius * startAngle,
+            radius * sweep,
+        ].map((value) => value ?? 0)
+    }
+    const wanted = positions(expected)
+
+    return Math.max(
+        ...positions(actual).map((value, index) =>
+            Math.abs(value - wanted[index]!),
+        ),
+    )
+}
+
 describe('DXF fixture readers', () => {
     it.each(fixtures)('reads the %s header', (path) => {
         const expected = manifestOf(path)
@@ -135,18 +197,12 @@ describe('DXF fixture readers', () => {
     it.each(fixtures)(
         'reads the %s entity properties without issues',
         (path) => {
-            const { tokens, linetypes, layers } = tablesOf(path)
-            const references = indexDxfReferences({ layers, linetypes })
-            const sourceRecords = Array.from(records(tokens))
+            const { references, recordOf } = referencesOf(path)
 
             for (const entity of manifestOf(path).entities) {
                 const { handle, layerName, color, lineweight, linetype } =
                     entity
-                const record = sourceRecords.find(({ tokens }) =>
-                    tokens.some(
-                        ({ code, value }) => code === 5 && value === handle,
-                    ),
-                )!
+                const record = recordOf(handle)
 
                 expect(readDxfEntityProperties(record, references)).toEqual({
                     record,
@@ -157,4 +213,42 @@ describe('DXF fixture readers', () => {
             }
         },
     )
+
+    it.each(fixtures)('reads the %s LINE, CIRCLE and ARC geometry', (path) => {
+        const { references, recordOf } = referencesOf(path)
+        const { entities, modelTolerance } = manifestOf(path)
+        const primitives = entities.filter(({ sourceType }) =>
+            ['LINE', 'CIRCLE', 'ARC'].includes(sourceType),
+        )
+
+        for (const { classification, geometry, ...entity } of primitives) {
+            const { handle, layerName, color, lineweight, linetype } = entity
+            const item = readDxfPrimitive(recordOf(handle), references)
+            // Converted entities have flipped normals, which CAD-050 converts.
+            const flipped = classification === 'converted'
+
+            expect(item.handle).toBe(handle)
+            expect(item.issues.map(({ kind, code }) => [kind, code])).toEqual(
+                flipped ? [['unsupported', 230]] : [],
+            )
+
+            if (flipped && entity.sourceType !== 'LINE') {
+                expect(item.value).toBeUndefined()
+                continue
+            }
+
+            const { geometry: actual, ...properties } = item.value!
+
+            expect(properties).toEqual({
+                layerName,
+                color,
+                lineweight,
+                linetype,
+            })
+            expect(actual.type).toBe(geometry!.type)
+            expect(deviation(actual, geometry!)).toBeLessThanOrEqual(
+                modelTolerance.distance,
+            )
+        }
+    })
 })

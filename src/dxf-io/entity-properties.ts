@@ -7,7 +7,7 @@ import {
     type Linetype,
 } from '../document/properties'
 import { type EntityProperties } from '../document/schema'
-import { attributeTokens, type DxfRecord } from './inventory'
+import { attributeGroups, type DxfRecord } from './inventory'
 import { type DxfIssue } from './issue'
 import { type DxfLayer } from './layers'
 import { LINETYPE_NAMES, type DxfLinetype } from './linetypes'
@@ -61,15 +61,7 @@ function foldName(name: string): string {
 }
 
 function entityGroups(record: DxfRecord): EntityGroups {
-    const groups = new Map(
-        PROPERTY_CODES.map((code) => [code, [] as DxfToken[]]),
-    )
-
-    for (const token of attributeTokens(record.tokens)) {
-        groups.get(token.code)?.push(token)
-    }
-
-    return { record, groups }
+    return { record, groups: attributeGroups(record.tokens, PROPERTY_CODES) }
 }
 
 function found(entity: EntityGroups, code: number): readonly DxfToken[] {

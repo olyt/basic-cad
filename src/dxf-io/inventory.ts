@@ -253,6 +253,20 @@ export function* attributeTokens(
     }
 }
 
+// The requested codes' attribute groups, in source order, from one pass.
+export function attributeGroups(
+    tokens: readonly DxfToken[],
+    codes: readonly number[],
+): ReadonlyMap<number, readonly DxfToken[]> {
+    const groups = new Map(codes.map((code) => [code, [] as DxfToken[]]))
+
+    for (const token of attributeTokens(tokens)) {
+        groups.get(token.code)?.push(token)
+    }
+
+    return groups
+}
+
 function inProfile(profile: RecordProfile, token: DxfToken): boolean {
     return (
         profile.codes.has(token.code) ||
