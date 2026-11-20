@@ -52,6 +52,20 @@ function nameOf(record: DxfTableRecord): string | undefined {
     return typeof value === 'string' ? decodeUnicodeEscapes(value) : undefined
 }
 
+function messageOf(code: number, groups: readonly DxfToken[]): string {
+    const unplotted =
+        code === 290 && groups.length === 1 && groups[0]?.value === 0
+
+    if (unplotted) {
+        return 'Layer is set not to plot; the plot setting is not kept.'
+    }
+
+    return (
+        FIELD_MESSAGES.get(code) ??
+        `Unsupported or repeated LAYER group ${code}.`
+    )
+}
+
 function unsupported(record: DxfTableRecord, code: number): LayerIssue {
     const groups = Array.from(attributeTokens(record.tokens)).filter(
         (token) => token.code === code,
@@ -61,9 +75,7 @@ function unsupported(record: DxfTableRecord, code: number): LayerIssue {
         kind: 'unsupported',
         code,
         line: groups.at(-1)?.line ?? record.line,
-        message:
-            FIELD_MESSAGES.get(code) ??
-            `Unsupported or repeated LAYER group ${code}.`,
+        message: messageOf(code, groups),
     }
 }
 

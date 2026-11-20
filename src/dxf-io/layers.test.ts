@@ -186,6 +186,20 @@ describe('DXF layer normalization', () => {
         ).toEqual([])
     })
 
+    it.each([
+        ['290\n0\n', 'Layer is set not to plot; the plot setting is not kept.'],
+        ['290\n1\n290\n1\n', 'Unsupported or repeated LAYER group 290.'],
+        ['290\n2\n', 'Unsupported or repeated LAYER group 290.'],
+    ])('explains the unsupported plot flag %j', (extra, message) => {
+        expect(read(record() + extra)[0]?.issues).toEqual([
+            expect.objectContaining({
+                kind: 'unsupported',
+                code: 290,
+                message,
+            }),
+        ])
+    })
+
     it('does not read missing primary color from application metadata', () => {
         const body =
             record().replace('62\n7\n', '') + '102\n{APP\n62\n1\n102\n}\n'

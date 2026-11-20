@@ -1,5 +1,5 @@
 import { inventoryDxf, records, type DxfRecord } from './inventory'
-import { type DxfToken } from './tokenize'
+import { quoted, type DxfToken } from './tokenize'
 
 export type TablesOutcome = 'tables' | 'error'
 
@@ -53,6 +53,25 @@ function tableSection(
     return selected
 }
 
+function tableName(
+    record: DxfTableRecord,
+    names: ReadonlySet<string>,
+): string | TableError {
+    const groups = record.tokens.filter(({ code }) => code === 2)
+    const name = String(groups[0]?.value)
+
+    if (groups.length !== 1) {
+        return tableError(
+            record.line,
+            '0/TABLE needs exactly one 2/name group.',
+        )
+    }
+
+    return names.has(name)
+        ? tableError(record.line, `Duplicate table ${quoted(name)}.`)
+        : name
+}
+
 // Raw records remain intact; group 70 is a capacity hint, not an entry count.
 export function readDxfTables(tokens: readonly DxfToken[]): ReadDxfTables {
     const inventory = inventoryDxf(tokens)
@@ -73,14 +92,10 @@ export function readDxfTables(tokens: readonly DxfToken[]): ReadDxfTables {
 
     for (const record of section) {
         if (record.type === 'TABLE') {
-            const namesInRecord = record.tokens.filter(({ code }) => code === 2)
-            const name = String(namesInRecord[0]?.value)
+            const name = tableName(record, names)
 
-            if (namesInRecord.length !== 1 || names.has(name)) {
-                return tableError(
-                    record.line,
-                    'Duplicate table name or table-name group.',
-                )
+            if (typeof name !== 'string') {
+                return name
             }
 
             names.add(name)

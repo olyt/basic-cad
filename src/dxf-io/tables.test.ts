@@ -58,8 +58,19 @@ describe('DXF table records', () => {
     })
 
     it.each([
-        '0\nTABLE\n2\nLTYPE\n0\nENDTAB\n0\nTABLE\n2\nLTYPE\n0\nENDTAB\n',
-        '0\nTABLE\n2\nLTYPE\n2\nLTYPE\n0\nENDTAB\n',
+        [
+            '0\nTABLE\n2\nLTYPE\n0\nENDTAB\n0\nTABLE\n2\nLTYPE\n0\nENDTAB\n',
+            { line: 11, message: 'Duplicate table "LTYPE".' },
+        ],
+        [
+            '0\nTABLE\n2\nLTYPE\n2\nLTYPE\n0\nENDTAB\n',
+            { line: 5, message: '0/TABLE needs exactly one 2/name group.' },
+        ],
+    ])('names the table-name problem: %s', (body, error) => {
+        expect(tables(body)).toEqual({ kind: 'error', ...error })
+    })
+
+    it.each([
         '0\nTABLE\n2\nLTYPE\n0\nLAYER\n2\nWrong\n0\nENDTAB\n',
         '0\nTABLE\n2\nLTYPE\n',
         '0\nENDSEC\n0\nSECTION\n2\nTABLES\n',

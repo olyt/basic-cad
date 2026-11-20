@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { createAciColor, LINEWEIGHT_VALUES } from '../document/properties'
-import { readDxfEntityProperties } from './entity-properties'
+import {
+    indexDxfReferences,
+    readDxfEntityProperties,
+    type EntityPropertyContext,
+} from './entity-properties'
 import { records } from './inventory'
 import { type DxfLayer } from './layers'
-import { type DxfLinetype } from './linetypes'
 import { tokenizeDxf } from './tokenize'
 
 const source = { type: 'LAYER', line: 1, tokens: [] }
@@ -21,10 +24,7 @@ const layer: DxfLayer = {
         linetype: 'continuous',
     },
 }
-const context: {
-    layers: readonly DxfLayer[]
-    linetypes: readonly DxfLinetype[]
-} = {
+const context: EntityPropertyContext = {
     layers: [layer],
     linetypes: [{ name: 'CONTINUOUS', value: 'continuous', record: source }],
 }
@@ -39,7 +39,7 @@ function read(body = '8\nPlan\n', dependencies = context) {
 
     return readDxfEntityProperties(
         records(result.tokens).next().value!,
-        dependencies,
+        indexDxfReferences(dependencies),
     )
 }
 
@@ -170,6 +170,32 @@ describe('DXF entity properties', () => {
         expect(item.issues).toEqual([
             expect.objectContaining({ kind: 'unsupported', code: 8, line: 3 }),
         ])
+    })
+
+    it('resolves every entity of a 20K-layer drawing to its own layer', () => {
+        const names = Array.from({ length: 20_000 }, (_, index) => `L${index}`)
+        const references = indexDxfReferences({
+            ...context,
+            layers: names.map((name) => ({
+                ...layer,
+                name,
+                value: { ...layer.value!, name },
+            })),
+        })
+        // A per-entity layer scan took about 14 s here; the 5 s test timeout catches its return.
+        const resolved = names.map(
+            (name, index) =>
+                readDxfEntityProperties(
+                    {
+                        type: 'LINE',
+                        line: index + 1,
+                        tokens: [{ code: 8, value: name, line: index + 2 }],
+                    },
+                    references,
+                ).value?.layerName,
+        )
+
+        expect(resolved).toEqual(names)
     })
 
     it('keeps application payload out of required fields, defaults and diagnostic positions', () => {

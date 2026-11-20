@@ -23,11 +23,22 @@ export interface EntityPropertyContext {
     readonly linetypes: readonly DxfLinetype[]
 }
 
+export interface DxfReferenceIndex {
+    // Keyed by folded name; undefined marks a name that more than one layer folds to.
+    readonly layers: ReadonlyMap<string, DxfLayer | undefined>
+    readonly continuous: boolean
+}
+
 export interface ReadDxfEntityProperties {
     readonly record: DxfRecord
     readonly handle?: string
     readonly value?: DxfEntityProperties
     readonly issues: readonly DxfIssue[]
+}
+
+interface EntityGroups {
+    readonly record: DxfRecord
+    readonly groups: ReadonlyMap<number, readonly DxfToken[]>
 }
 
 const DEFAULTS = new Map<number, DxfToken['value'] | undefined>([
@@ -36,6 +47,7 @@ const DEFAULTS = new Map<number, DxfToken['value'] | undefined>([
     [370, -1],
     [6, 'BYLAYER'],
 ])
+const PROPERTY_CODES = [5, ...DEFAULTS.keys()]
 const MESSAGES: ReadonlyMap<number, string> = new Map([
     [5, 'Entity handle must be unique, nonempty source text.'],
     [8, 'Entity needs one reference to a known, representable layer.'],
@@ -44,32 +56,46 @@ const MESSAGES: ReadonlyMap<number, string> = new Map([
     [6, 'Entity linetype must be inherited or qualified CONTINUOUS.'],
 ])
 
-function groups(record: DxfRecord, code: number): DxfToken[] {
-    return Array.from(attributeTokens(record.tokens)).filter(
-        (token) => token.code === code,
-    )
+function foldName(name: string): string {
+    return name.toLowerCase().toUpperCase()
 }
 
-function unsupported(record: DxfRecord, code: number): DxfIssue {
+function entityGroups(record: DxfRecord): EntityGroups {
+    const groups = new Map(
+        PROPERTY_CODES.map((code) => [code, [] as DxfToken[]]),
+    )
+
+    for (const token of attributeTokens(record.tokens)) {
+        groups.get(token.code)?.push(token)
+    }
+
+    return { record, groups }
+}
+
+function found(entity: EntityGroups, code: number): readonly DxfToken[] {
+    return entity.groups.get(code) ?? []
+}
+
+function unsupported(entity: EntityGroups, code: number): DxfIssue {
     return {
         kind: 'unsupported',
         code,
-        line: groups(record, code).at(-1)?.line ?? record.line,
+        line: found(entity, code).at(-1)?.line ?? entity.record.line,
         message: MESSAGES.get(code)!,
     }
 }
 
 function fieldValues(
-    record: DxfRecord,
+    entity: EntityGroups,
 ): ReadonlyMap<number, DxfToken['value']> | DxfIssue {
     const fields = new Map<number, DxfToken['value']>()
 
     for (const [code, fallback] of DEFAULTS) {
-        const found = groups(record, code)
-        const value = found[0]?.value ?? fallback
+        const groups = found(entity, code)
+        const value = groups[0]?.value ?? fallback
 
-        if (found.length > 1 || value === undefined) {
-            return unsupported(record, code)
+        if (groups.length > 1 || value === undefined) {
+            return unsupported(entity, code)
         }
 
         fields.set(code, value)
@@ -78,30 +104,26 @@ function fieldValues(
     return fields
 }
 
-function sourceHandle(record: DxfRecord) {
-    const found = groups(record, 5)
-    const value = found[0]?.value
+function sourceHandle(entity: EntityGroups) {
+    const groups = found(entity, 5)
+    const value = groups[0]?.value
     const valid =
-        found.length === 1 && typeof value === 'string' && value.trim() !== ''
+        groups.length === 1 && typeof value === 'string' && value.trim() !== ''
 
     return {
         ...(valid ? { handle: value } : {}),
-        issues: found.length === 0 || valid ? [] : [unsupported(record, 5)],
+        issues: groups.length === 0 || valid ? [] : [unsupported(entity, 5)],
     }
 }
 
-function resolveLayer(value: unknown, layers: readonly DxfLayer[]) {
+function resolveLayer(value: unknown, references: DxfReferenceIndex) {
     if (typeof value !== 'string') {
         return undefined
     }
 
-    const key = decodeUnicodeEscapes(value).toLowerCase().toUpperCase()
-    const matches = layers.filter(
-        ({ name }) => name?.toLowerCase().toUpperCase() === key,
-    )
-    const [layer] = matches
+    const layer = references.layers.get(foldName(decodeUnicodeEscapes(value)))
 
-    if (matches.length !== 1 || layer?.value === undefined) {
+    if (layer?.value === undefined) {
         return undefined
     }
 
@@ -129,7 +151,7 @@ function weightOf(value: unknown): EntityLineweight | undefined {
 
 function linetypeOf(
     value: unknown,
-    definitions: readonly DxfLinetype[],
+    references: DxfReferenceIndex,
 ): Linetype | undefined {
     if (typeof value !== 'string') {
         return undefined
@@ -141,24 +163,44 @@ function linetypeOf(
         return LINETYPE_NAMES.get(name)
     }
 
-    const matches = definitions.filter(
-        (item) => item.name?.toUpperCase() === name,
-    )
-    const qualified =
-        name === 'CONTINUOUS' &&
-        matches.length === 1 &&
-        matches[0]?.value === 'continuous'
+    return name === 'CONTINUOUS' && references.continuous
+        ? 'continuous'
+        : undefined
+}
 
-    return qualified ? 'continuous' : undefined
+// Built once per drawing so each entity lookup is independent of the layer count.
+export function indexDxfReferences(
+    context: EntityPropertyContext,
+): DxfReferenceIndex {
+    const layers = new Map<string, DxfLayer | undefined>()
+
+    for (const layer of context.layers) {
+        if (layer.name !== undefined) {
+            const key = foldName(layer.name)
+
+            layers.set(key, layers.has(key) ? undefined : layer)
+        }
+    }
+
+    const continuous = context.linetypes.filter(
+        (item) => item.name?.toUpperCase() === 'CONTINUOUS',
+    )
+
+    return {
+        layers,
+        continuous:
+            continuous.length === 1 && continuous[0]?.value === 'continuous',
+    }
 }
 
 // Property success alone does not qualify geometry, entity types or extra attributes.
 export function readDxfEntityProperties(
     record: DxfRecord,
-    context: EntityPropertyContext,
+    references: DxfReferenceIndex,
 ): ReadDxfEntityProperties {
-    const fields = fieldValues(record)
-    const source = { record, ...sourceHandle(record) }
+    const entity = entityGroups(record)
+    const fields = fieldValues(entity)
+    const source = { record, ...sourceHandle(entity) }
     const failure = (issue: DxfIssue) => ({
         ...source,
         issues: [...source.issues, issue],
@@ -168,30 +210,30 @@ export function readDxfEntityProperties(
         return failure(fields)
     }
 
-    const layer = resolveLayer(fields.get(8), context.layers)
+    const layer = resolveLayer(fields.get(8), references)
     const color = colorOf(fields.get(62))
     const lineweight = weightOf(fields.get(370))
-    const linetype = linetypeOf(fields.get(6), context.linetypes)
+    const linetype = linetypeOf(fields.get(6), references)
 
     if (layer === undefined) {
-        return failure(unsupported(record, 8))
+        return failure(unsupported(entity, 8))
     }
 
     if (color === undefined) {
-        return failure(unsupported(record, 62))
+        return failure(unsupported(entity, 62))
     }
 
     if (lineweight === undefined) {
-        return failure(unsupported(record, 370))
+        return failure(unsupported(entity, 370))
     }
 
     if (linetype === undefined) {
-        return failure(unsupported(record, 6))
+        return failure(unsupported(entity, 6))
     }
 
     if (layer.unsupported) {
         source.issues.push({
-            ...unsupported(record, 8),
+            ...unsupported(entity, 8),
             message:
                 'Referenced layer has unsupported properties; preview only.',
         })
