@@ -320,6 +320,67 @@ describe('DXF raw inventory', () => {
         ])
     })
 
+    it('resumes at the matching named group-102 terminator', () => {
+        const inventory = inventoryOf(
+            entitiesSection(`
+                0 LWPOLYLINE
+                102 {Survey
+                5 DE
+                102 Other}
+                39 8
+                1 Survey}
+                39 7
+                102 Survey}
+                5 AB
+                39 2
+            `),
+        )
+        const attribute = {
+            kind: 'attribute',
+            record: 'LWPOLYLINE',
+            handle: 'AB',
+        }
+
+        expect(inventory.unsupported).toEqual([
+            { ...attribute, code: 102, value: '{Survey', line: 7 },
+            { ...attribute, code: 39, value: 2, line: 23 },
+        ])
+    })
+
+    it.each(['', '5   ', '5 AA\n5 AB'])(
+        'omits ambiguous or absent outer handles, including %j',
+        (outer) => {
+            const source = `102 {Survey\n5 DE\n102 }\n${outer}`
+            const inventory = inventoryOf(
+                entitiesSection(`0 TEXT\n${source}\n0 LINE\n${source}\n39 2`),
+            )
+
+            expect(inventory.unsupported).toHaveLength(3)
+
+            for (const item of inventory.unsupported) {
+                expect(item).not.toHaveProperty('handle')
+            }
+        },
+    )
+
+    it.each(['entity', 'layer'])(
+        'retains all unsupported attributes on a large %s record',
+        (record) => {
+            const count = 150_000
+            const groups = '420 1\n'.repeat(count)
+            const text =
+                record === 'entity'
+                    ? entitiesSection(`0 LINE\n${groups}`)
+                    : `0 SECTION\n2 TABLES\n0 TABLE\n2 LAYER\n0 LAYER\n${groups}0 ENDTAB\n0 ENDSEC`
+            const { unsupported } = inventoryOf(text)
+
+            expect(unsupported).toHaveLength(count)
+            expect(unsupported.at(-1)?.line).toBe(
+                unsupported[0]!.line + 2 * (count - 1),
+            )
+        },
+    )
+
     it('lists each XDATA application once without its values', () => {
         const inventory = inventoryOf(
             entitiesSection(`
@@ -457,6 +518,33 @@ describe('DXF raw inventory', () => {
             { kind: 'block', name: 'Tagged', line: 63 },
             { kind: 'block', name: '*Paper_Space1', line: 71, handle: '40' },
             { kind: 'block', name: '*Model_Space2', line: 83 },
+        ])
+    })
+
+    it('classifies xrefs using the block name, flags and handle outside metadata', () => {
+        const { unsupported } = inventoryOf(`
+            0 SECTION
+            2 BLOCKS
+            0 BLOCK
+            102 {Survey
+            2 *Model_Space
+            70 0
+            5 DE
+            102 }
+            2 SURVEY
+            70 4
+            5 AB
+            0 ENDBLK
+            0 BLOCK
+            2 *Paper_Space
+            70 8
+            0 ENDBLK
+            0 ENDSEC
+        `)
+
+        expect(unsupported).toEqual([
+            { kind: 'xref', name: 'SURVEY', line: 5, handle: 'AB' },
+            { kind: 'xref', name: '*Paper_Space', line: 25 },
         ])
     })
 

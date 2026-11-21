@@ -206,13 +206,24 @@ function valueOf(
     record: DxfRecord,
     code: number,
 ): DxfToken['value'] | undefined {
-    return record.tokens.find((token) => token.code === code)?.value
+    for (const token of attributeTokens(record.tokens)) {
+        if (token.code === code) {
+            return token.value
+        }
+    }
+
+    return undefined
 }
 
 function handleOf(record: DxfRecord): { handle?: string } {
-    const handle = valueOf(record, 5)
+    const groups = attributeGroups(record.tokens, [5]).get(5)!
+    const handle = groups[0]?.value
+    const valid =
+        groups.length === 1 &&
+        typeof handle === 'string' &&
+        handle.trim() !== ''
 
-    return typeof handle === 'string' ? { handle } : {}
+    return valid ? { handle } : {}
 }
 
 function nameOf(record: DxfRecord): string | undefined {
@@ -225,23 +236,41 @@ function addCount(counts: Map<string, number>, name: string): void {
     counts.set(name, (counts.get(name) ?? 0) + 1)
 }
 
+function nextAppGroupEnd(
+    token: DxfToken,
+    current: string | undefined,
+): string | undefined {
+    if (token.code !== APP_GROUP) {
+        return current
+    }
+
+    const control = String(token.value)
+
+    if (current === undefined) {
+        return control.startsWith('{') ? `${control.slice(1)}}` : undefined
+    }
+
+    return control === '}' || control === current ? undefined : current
+}
+
 // Yields groups outside application groups (102) and XDATA, plus the groups that open them.
 export function* attributeTokens(
     tokens: readonly DxfToken[],
 ): Generator<DxfToken> {
-    let inAppGroup = false
+    let namedEnd: string | undefined
     let inXdata = false
 
     for (const token of tokens) {
+        const inAppGroup = namedEnd !== undefined
+
+        namedEnd = nextAppGroupEnd(token, namedEnd)
+
         if (inAppGroup) {
-            inAppGroup = token.code !== APP_GROUP || token.value !== '}'
             continue
         }
 
         const isXdataApp = token.code === XDATA_APP
 
-        inAppGroup =
-            token.code === APP_GROUP && String(token.value).startsWith('{')
         inXdata ||= isXdataApp
 
         const isXdataValue =
@@ -274,22 +303,26 @@ function inProfile(profile: RecordProfile, token: DxfToken): boolean {
     )
 }
 
-function unsupportedAttributes(
+function* unsupportedAttributes(
     record: DxfRecord,
     profile: RecordProfile,
-): UnsupportedAttribute[] {
+): Generator<UnsupportedAttribute> {
     const handle = handleOf(record)
 
-    return Array.from(attributeTokens(record.tokens))
-        .filter((token) => !inProfile(profile, token))
-        .map((token) => ({
+    for (const token of attributeTokens(record.tokens)) {
+        if (inProfile(profile, token)) {
+            continue
+        }
+
+        yield {
             kind: 'attribute',
             record: record.type,
             code: token.code,
             value: token.value,
             line: token.line,
             ...handle,
-        }))
+        }
+    }
 }
 
 function closingError(
@@ -393,7 +426,7 @@ function openBlock(scope: SectionScope, record: DxfRecord): Step {
         line: record.line,
         ...handleOf(record),
     }
-    const listed = !LAYOUT_BLOCK.test(name)
+    const listed = isXref || !LAYOUT_BLOCK.test(name)
 
     if (listed) {
         scope.tally.unsupported.push(item)
@@ -423,7 +456,9 @@ function readEntity(scope: SectionScope, record: DxfRecord): Step {
             ...handleOf(record),
         })
     } else {
-        scope.tally.unsupported.push(...unsupportedAttributes(record, profile))
+        for (const issue of unsupportedAttributes(record, profile)) {
+            scope.tally.unsupported.push(issue)
+        }
     }
 
     return scope
@@ -475,9 +510,9 @@ function stepTable(scope: TableScope, record: DxfRecord): Step {
     scope.section.items += 1
 
     if (table.name === 'LAYER') {
-        scope.tally.unsupported.push(
-            ...unsupportedAttributes(record, LAYER_PROFILE),
-        )
+        for (const issue of unsupportedAttributes(record, LAYER_PROFILE)) {
+            scope.tally.unsupported.push(issue)
+        }
     }
 
     return scope

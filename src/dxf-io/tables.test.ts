@@ -57,6 +57,19 @@ describe('DXF table records', () => {
         expect(tables('')).toEqual({ kind: 'tables', tables: [] })
     })
 
+    it('reads the table name outside application metadata', () => {
+        const metadata = '102\n{APP\n2\nLTYPE\n102\nAPP}\n'
+        const result = tables(
+            `0\nTABLE\n${metadata}2\nLAYER\n0\nLAYER\n2\nPlan\n0\nENDTAB\n`,
+        )
+
+        expect(result).toMatchObject({
+            kind: 'tables',
+            tables: [{ name: 'LAYER', entries: [{ type: 'LAYER' }] }],
+        })
+        expect(tables(`0\nTABLE\n${metadata}0\nENDTAB\n`).kind).toBe('error')
+    })
+
     it.each([
         [
             '0\nTABLE\n2\nLTYPE\n0\nENDTAB\n0\nTABLE\n2\nLTYPE\n0\nENDTAB\n',

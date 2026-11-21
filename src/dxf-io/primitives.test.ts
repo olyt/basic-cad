@@ -170,6 +170,8 @@ describe('DXF LINE, CIRCLE and ARC reader', () => {
         },
         { start: -1e-20, end: 90, from: 0, sweep: 90 },
         { start: 1e20, end: 0, from: 280, sweep: 80 },
+        { start: 1e16, end: 1, from: 280, sweep: 81 },
+        { start: 90, end: 1e20, from: 90, sweep: 190 },
     ])(
         'reads ARC $start° → $end° counterclockwise as start $from°, sweep $sweep°',
         ({ start, end, from, sweep }) => {
@@ -182,12 +184,38 @@ describe('DXF LINE, CIRCLE and ARC reader', () => {
     )
 
     it.each([
+        { start: 360, end: 1e-14, span: 1e-14 },
+        { start: -(2 ** -49), end: -(2 ** -50), span: 2 ** -50 },
+    ])(
+        'preserves a tiny sweep from $start° to $end°',
+        ({ start, end, span }) => {
+            const item = read('ARC', arc(start, end))
+            const expected = span * (Math.PI / 180)
+
+            expect(item.issues).toEqual([])
+            expect(item.value?.geometry).toMatchObject({
+                type: 'arc',
+                sweep: expect.closeTo(expected, 30),
+            })
+        },
+    )
+
+    it('keeps a near-full sweep that rounds to a partial turn in radians', () => {
+        expect(read('ARC', arc(2 ** -45, 0)).value?.geometry).toMatchObject({
+            type: 'arc',
+            sweep: 2 * Math.PI - 2 ** -50,
+        })
+    })
+
+    it.each([
         [10, 10],
         [0, 360],
         [-180, 180],
         [0, '359.99999999999999'],
         ['1.7e308', '-1.7e308'],
         ['1e-20', 0],
+        [1e20, 280],
+        [0, Number.MIN_VALUE],
     ])(
         'rejects ARC %s° → %s° instead of inventing a zero or full turn',
         (start, end) => {

@@ -8,6 +8,7 @@ import {
     type Circle,
     type Line,
 } from '../geometry/curve'
+import { integerCoordinates, roundRational } from '../geometry/exact'
 import {
     readDxfEntityProperties,
     type DxfReferenceIndex,
@@ -44,7 +45,7 @@ interface PrimitiveProfile {
     readonly build: (fields: Fields) => DxfPrimitive | Failure
 }
 
-const DEGREE = Math.PI / 180
+const DEGREES_PER_TURN = 360
 const RADIUS: GroupRule = {
     code: 40,
     accepts: (value) => value > 0 && value <= MAX_COORDINATE,
@@ -102,20 +103,45 @@ function circle(fields: Fields): Circle {
     return createCircle(point(fields, 10), fields.get(40)!)
 }
 
-// Shifting only negative remainders keeps positive ones exact; a tiny negative one can reach 360.
-function turnDegrees(value: number): number {
-    const remainder = value % 360
+// Keep both degree remainders exact until the counterclockwise span is rounded in radians.
+function arcAngles(start: number, end: number) {
+    if (!Number.isFinite(end - start)) {
+        return undefined
+    }
 
-    return remainder < 0 ? remainder + 360 : remainder
+    const {
+        exponent,
+        values: [from, to, degreesPerTurn, radiansPerTurn],
+    } = integerCoordinates([
+        start % DEGREES_PER_TURN,
+        end % DEGREES_PER_TURN,
+        DEGREES_PER_TURN,
+        FULL_TURN,
+    ])
+    const radians = (degrees: bigint) => {
+        const remainder = degrees % degreesPerTurn
+        const wrapped = remainder < 0n ? remainder + degreesPerTurn : remainder
+
+        return roundRational(
+            {
+                numerator: wrapped * radiansPerTurn,
+                denominator: degreesPerTurn,
+            },
+            exponent,
+        )
+    }
+    const sweep = radians(to - from)
+
+    return sweep > 0 && sweep < FULL_TURN
+        ? { startAngle: radians(from), sweep }
+        : undefined
 }
 
 // DXF arcs run counterclockwise from group 50 to group 51, in degrees.
 function arc(fields: Fields): Arc | Failure {
-    const start = fields.get(50)!
-    const sweep = turnDegrees(fields.get(51)! - start) * DEGREE
-    const partial = sweep > 0 && sweep < FULL_TURN
+    const angles = arcAngles(fields.get(50)!, fields.get(51)!)
 
-    if (!partial) {
+    if (angles === undefined) {
         return {
             code: 51,
             message:
@@ -126,8 +152,7 @@ function arc(fields: Fields): Arc | Failure {
     return createArc({
         center: point(fields, 10),
         radius: fields.get(40)!,
-        startAngle: turnDegrees(start) * DEGREE,
-        sweep,
+        ...angles,
     })
 }
 

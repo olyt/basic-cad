@@ -258,7 +258,7 @@ function buildPolyline(
 ): GeometryResult<Polyline> {
     const { vertices, closed } = path
     const count = closed ? vertices.length : vertices.length - 1
-    const issues: DxfIssue[] = []
+    const segmentIssues: DxfIssue[] = []
     const segments = vertices.slice(0, count).map((from, index) => {
         const built = segmentFrom(
             from,
@@ -269,14 +269,14 @@ function buildPolyline(
             return built
         }
 
-        issues.push(built)
+        segmentIssues.push(built)
 
         return undefined
     })
 
-    issues.push(
-        ...danglingBulge(path),
-        ...meetingIssues({ ...path, segments }, tolerance),
+    const issues = segmentIssues.concat(
+        danglingBulge(path),
+        meetingIssues({ ...path, segments }, tolerance),
     )
 
     if (issues.length > 0) {

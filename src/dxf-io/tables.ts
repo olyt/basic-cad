@@ -1,4 +1,9 @@
-import { inventoryDxf, records, type DxfRecord } from './inventory'
+import {
+    attributeGroups,
+    inventoryDxf,
+    records,
+    type DxfRecord,
+} from './inventory'
 import { quoted, type DxfToken } from './tokenize'
 
 export type TablesOutcome = 'tables' | 'error'
@@ -57,7 +62,7 @@ function tableName(
     record: DxfTableRecord,
     names: ReadonlySet<string>,
 ): string | TableError {
-    const groups = record.tokens.filter(({ code }) => code === 2)
+    const groups = attributeGroups(record.tokens, [2]).get(2)!
     const name = String(groups[0]?.value)
 
     if (groups.length !== 1) {

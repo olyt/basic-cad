@@ -528,6 +528,28 @@ describe('DXF LWPOLYLINE reader', () => {
         expect(read(lines, { distance: 0 }).issues).toEqual([])
     })
 
+    it('retains every vertex diagnostic in a large polyline', () => {
+        const pairs = 65_536
+        const count = 2 * pairs
+        // Each arc misses both source vertices at zero model tolerance.
+        const pair = vertices([
+            [0, 0, 0.3],
+            [1, 0.7],
+        ])
+        const item = read(`90\n${count}\n${pair.repeat(pairs)}`, {
+            distance: 0,
+        })
+
+        expect(item.handle).toBe('A1')
+        expect(item.value).toBeUndefined()
+        expect(item.issues).toHaveLength(count)
+        expect(
+            item.issues.every(
+                (issue, index) => issue.code === 10 && issue.vertex === index,
+            ),
+        ).toBe(true)
+    })
+
     it('checks the closing arc against the first vertex', () => {
         const body = polyline(
             [
@@ -576,17 +598,20 @@ describe('DXF LWPOLYLINE reader', () => {
         ).toEqual([10, 230])
     })
 
-    it('keeps application and XDATA payloads out of vertices and header groups', () => {
-        const payload =
-            '102\n{APP\n90\n9\n10\n99\n20\n99\n42\n5\n43\n1\n102\n}\n1001\nAPP\n1010\n7\n1020\n8\n1040\n9\n'
+    it.each(['}', 'APP}'])(
+        'reads vertices outside application data closed by %s and ignores XDATA',
+        (closer) => {
+            const application = `102\n{APP\n90\n9\n10\n99\n20\n99\n42\n5\n43\n1\n102\n${closer}\n`
+            const xdata = '1001\nAPP\n1010\n7\n1020\n8\n1040\n9\n'
 
-        expect(read(lines + payload).value?.geometry).toEqual(
-            read(lines).value?.geometry,
-        )
-        expect(read(payload + bulged).value?.geometry).toEqual(
-            read(bulged).value?.geometry,
-        )
-    })
+            expect(read(xdata + lines + application).value?.geometry).toEqual(
+                read(lines).value?.geometry,
+            )
+            expect(read(application + bulged + xdata).value?.geometry).toEqual(
+                read(bulged).value?.geometry,
+            )
+        },
+    )
 
     it('reports property and geometry issues together and rejects other entity types', () => {
         const body = `${polyline([
