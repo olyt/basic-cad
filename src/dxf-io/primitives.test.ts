@@ -308,9 +308,7 @@ describe('DXF LINE, CIRCLE and ARC reader', () => {
         ])
     })
 
-    it('leaves flipped and other extrusions unconverted, keeping only WCS LINE geometry', () => {
-        expect(codes('CIRCLE', `${circle}210\n0\n220\n0\n230\n1\n`)).toEqual([])
-
+    it('normalizes a flipped LINE with its original WCS endpoints', () => {
         const flippedLine = read('LINE', line + flipped)
 
         expect(flippedLine.value?.geometry).toEqual(
@@ -318,24 +316,97 @@ describe('DXF LINE, CIRCLE and ARC reader', () => {
         )
         expect(flippedLine.issues).toEqual([
             expect.objectContaining({
-                kind: 'unsupported',
+                kind: 'converted',
                 code: 230,
                 line: 23,
             }),
         ])
+    })
 
-        for (const [type, body] of [
-            ['CIRCLE', circle],
-            ['ARC', arc(0, 90)],
-        ] as const) {
-            expect(read(type, body + flipped).value).toBeUndefined()
-            expect(codes(type, body + flipped)).toEqual([230])
-        }
+    it('reflects a flipped CIRCLE center with zero X/Y extrusion defaults', () => {
+        const item = read('CIRCLE', `${circle}230\n-1\n`)
 
-        expect(codes('CIRCLE', `${circle}210\n1\n220\n0\n230\n0\n`)).toEqual([
-            210,
+        expect(item.value?.geometry).toEqual(createCircle({ x: -1, y: 2 }, 3))
+        expect(item.issues).toEqual([
+            expect.objectContaining({ kind: 'converted', code: 230, line: 15 }),
         ])
-        expect(codes('CIRCLE', `${circle}230\n1\n230\n1\n`)).toEqual([230])
+    })
+
+    it.each([
+        { start: 350, end: 10, from: 190, sweep: -20 },
+        { start: 25, end: 10, from: 155, sweep: -345 },
+    ])(
+        'reflects ARC $start° → $end° about the Y axis',
+        ({ start, end, from, sweep }) => {
+            const item = read('ARC', arc(start, end) + flipped)
+
+            expect(item.value?.geometry).toMatchObject({
+                type: 'arc',
+                center: { x: -1, y: 2 },
+                radius: 3,
+                startAngle: expect.closeTo((from * Math.PI) / 180, 12),
+                sweep: expect.closeTo((sweep * Math.PI) / 180, 12),
+            })
+            expect(item.issues).toEqual([
+                expect.objectContaining({
+                    kind: 'converted',
+                    code: 230,
+                    line: 23,
+                }),
+            ])
+        },
+    )
+
+    it('reflects a start one rounding step below 180° before rounding to radians', () => {
+        const offset = 2 ** -45
+        const angle = (offset * Math.PI) / 180
+        const item = read('ARC', arc(180 - offset, 180) + flipped)
+
+        expect(item.value?.geometry).toMatchObject({
+            startAngle: angle,
+            sweep: -angle,
+        })
+    })
+
+    it('reports invalid extrusions and keeps planar geometry only for WCS lines', () => {
+        expect(codes('CIRCLE', `${circle}210\n0\n220\n0\n230\n1\n`)).toEqual([])
+
+        const tilted = '210\n1\n220\n0\n230\n-1\n'
+        const preview = read('LINE', line + tilted)
+
+        expect(preview.value?.geometry).toEqual(
+            read('LINE', line).value?.geometry,
+        )
+        expect(preview.issues).toEqual([
+            expect.objectContaining({ kind: 'unsupported', code: 210 }),
+        ])
+        expect(read('ARC', arc(0, 90) + tilted).value).toBeUndefined()
+        expect(codes('CIRCLE', circle + tilted)).toEqual([210])
+        expect(codes('CIRCLE', `${circle}230\n0\n`)).toEqual([230])
+        expect(codes('CIRCLE', `${circle}230\n-1\n230\n-1\n`)).toEqual([230])
+        expect(
+            read('CIRCLE', `${circle}230\n-1\n230\n-1\n`).value,
+        ).toBeUndefined()
+    })
+
+    it('reports nonzero Z or a degenerate arc without claiming a conversion', () => {
+        expect(codes('LINE', withGroup(line, [31, '2']) + flipped)).toEqual([
+            31,
+        ])
+        expect(
+            codes('ARC', withGroup(arc(0, 90), [30, '2']) + flipped),
+        ).toEqual([30])
+        expect(codes('ARC', arc(0, 360) + flipped)).toEqual([51])
+    })
+
+    it('reports a duplicate layer reference without claiming a flipped circle conversion', () => {
+        const item = read('CIRCLE', circle + flipped + '8\nUnknown\n')
+
+        expect(item.handle).toBe('A1')
+        expect(item.value).toBeUndefined()
+        expect(item.issues).toEqual([
+            expect.objectContaining({ kind: 'unsupported', code: 8 }),
+        ])
     })
 
     it('rejects a zero-length LINE without reaching the curve constructor', () => {

@@ -18,12 +18,14 @@ import {
     coordinate,
     elevation,
     EXTRUSION,
-    extrusionIssues,
     issueAt,
+    ocsPoint,
     point,
+    readExtrusion,
     readFields,
     typeIssue,
     type DxfGeometryEntity,
+    type ExtrusionDirection,
     type Failure,
     type Fields,
     type GeometryResult,
@@ -42,7 +44,10 @@ interface PrimitiveProfile {
     readonly rules: readonly GroupRule[]
     // ARC and CIRCLE points lie in the extrusion's plane; LINE endpoints are always WCS.
     readonly ocs: boolean
-    readonly build: (fields: Fields) => DxfPrimitive | Failure
+    readonly build: (
+        fields: Fields,
+        direction: ExtrusionDirection,
+    ) => DxfPrimitive | Failure
 }
 
 const DEGREES_PER_TURN = 360
@@ -99,12 +104,15 @@ function line(fields: Fields): Line | Failure {
         : createLine(start, end)
 }
 
-function circle(fields: Fields): Circle {
-    return createCircle(point(fields, 10), fields.get(40)!)
+function circle(fields: Fields, direction: ExtrusionDirection): Circle {
+    return createCircle(ocsPoint(fields, direction), fields.get(40)!)
 }
 
 // Keep both degree remainders exact until the counterclockwise span is rounded in radians.
-function arcAngles(start: number, end: number) {
+function arcAngles(fields: Fields, direction: ExtrusionDirection) {
+    const start = fields.get(50)!
+    const end = fields.get(51)!
+
     if (!Number.isFinite(end - start)) {
         return undefined
     }
@@ -131,15 +139,17 @@ function arcAngles(start: number, end: number) {
         )
     }
     const sweep = radians(to - from)
+    // Reflection changes the start ray from θ to π − θ and reverses traversal.
+    const startRay = direction === -1 ? degreesPerTurn / 2n - from : from
 
     return sweep > 0 && sweep < FULL_TURN
-        ? { startAngle: radians(from), sweep }
+        ? { startAngle: radians(startRay), sweep: direction * sweep }
         : undefined
 }
 
 // DXF arcs run counterclockwise from group 50 to group 51, in degrees.
-function arc(fields: Fields): Arc | Failure {
-    const angles = arcAngles(fields.get(50)!, fields.get(51)!)
+function arc(fields: Fields, direction: ExtrusionDirection): Arc | Failure {
+    const angles = arcAngles(fields, direction)
 
     if (angles === undefined) {
         return {
@@ -150,7 +160,7 @@ function arc(fields: Fields): Arc | Failure {
     }
 
     return createArc({
-        center: point(fields, 10),
+        center: ocsPoint(fields, direction),
         radius: fields.get(40)!,
         ...angles,
     })
@@ -168,21 +178,21 @@ function readGeometry(record: DxfRecord): GeometryResult<DxfPrimitive> {
         groups: attributeGroups(record.tokens, GEOMETRY_CODES),
     }
     const fields = readFields(entity, profile.rules)
-    const extrusion = extrusionIssues(entity)
+    const { direction, issues } = readExtrusion(entity)
 
     if (Array.isArray(fields)) {
-        return { issues: [...fields, ...extrusion] }
+        return { issues: [...fields, ...issues] }
     }
 
-    if (profile.ocs && extrusion.length > 0) {
-        return { issues: extrusion }
+    if (profile.ocs && direction === undefined) {
+        return { issues }
     }
 
-    const built = profile.build(fields)
+    const built = profile.build(fields, direction ?? 1)
 
     return 'type' in built
-        ? { value: built, issues: extrusion }
-        : { issues: [...extrusion, issueAt(entity, built)] }
+        ? { value: built, issues }
+        : { issues: [...issues, issueAt(entity, built)] }
 }
 
 // Coordinates are checked before construction, so no curve constructor rejects source values.

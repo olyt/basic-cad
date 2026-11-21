@@ -2,6 +2,7 @@ import { bulgeToSegment } from '../geometry/bulge'
 import { type Polyline, type PolylineSegment } from '../geometry/curve'
 import { createPolyline } from '../geometry/polyline'
 import { segmentEndpoints } from '../geometry/segment'
+import { type Vector2 } from '../geometry/vector'
 import {
     createModelTolerance,
     pointsCoincide,
@@ -16,16 +17,16 @@ import {
     coordinate,
     elevation,
     EXTRUSION,
-    extrusionIssues,
     fixed,
     issueAt,
-    point,
+    ocsPoint,
+    readExtrusion,
     readFields,
     typeIssue,
     type DxfGeometryEntity,
     type EntityGroups,
     type Failure,
-    type Fields,
+    type ExtrusionDirection,
     type GeometryResult,
     type GroupRule,
     type ReadDxfEntity,
@@ -44,10 +45,13 @@ export interface DxfPolylineContext {
     readonly modelTolerance: ModelTolerance
 }
 
-interface Vertex {
+interface VertexSource extends EntityGroups {
     readonly index: number
-    readonly groups: EntityGroups
-    readonly fields: Fields
+}
+
+interface Vertex extends VertexSource {
+    readonly position: Vector2
+    readonly bulge: number
 }
 
 interface Path {
@@ -104,7 +108,7 @@ const VERTEX_RULES: readonly GroupRule[] = [
 const VERTEX_CODES = new Set(VERTEX_RULES.map(({ code }) => code))
 
 function vertexIssue(vertex: Vertex, failure: Failure): DxfIssue {
-    return { ...issueAt(vertex.groups, failure), vertex: vertex.index }
+    return { ...issueAt(vertex, failure), vertex: vertex.index }
 }
 
 // Y follows its X; width and bulge groups follow both, once each.
@@ -146,32 +150,41 @@ function splitVertices(record: DxfRecord): {
     return { sources, issues }
 }
 
-function readVertex(entity: EntityGroups, index: number): Vertex | DxfIssue[] {
-    if (!entity.groups.has(20)) {
+function readVertex(
+    source: VertexSource,
+    direction: ExtrusionDirection,
+): Vertex | DxfIssue[] {
+    if (!source.groups.has(20)) {
         return [
             {
                 kind: 'unsupported',
                 code: 20,
-                line: entity.groups.get(10)![0]!.line,
+                line: source.groups.get(10)![0]!.line,
                 message: 'Vertex needs one group 20 after its group 10.',
-                vertex: index,
+                vertex: source.index,
             },
         ]
     }
 
-    const fields = readFields(entity, VERTEX_RULES)
+    const fields = readFields(source, VERTEX_RULES)
 
-    return Array.isArray(fields)
-        ? fields.map((issue) => ({ ...issue, vertex: index }))
-        : { index, groups: entity, fields }
+    if (Array.isArray(fields)) {
+        return fields.map((issue) => ({ ...issue, vertex: source.index }))
+    }
+
+    return {
+        ...source,
+        position: ocsPoint(fields, direction),
+        bulge: direction * fields.get(42)!,
+    }
 }
 
-function readVertices(record: DxfRecord) {
+function readVertices(record: DxfRecord, direction: ExtrusionDirection) {
     const { sources, issues } = splitVertices(record)
     const vertices: Vertex[] = []
 
     for (const [index, groups] of sources.entries()) {
-        const vertex = readVertex({ record, groups }, index)
+        const vertex = readVertex({ record, groups, index }, direction)
 
         if (Array.isArray(vertex)) {
             issues.push(...vertex)
@@ -193,8 +206,8 @@ function countIssues(
 }
 
 function segmentFrom(from: Vertex, to: Vertex): PolylineSegment | DxfIssue {
-    const start = point(from.fields, 10)
-    const end = point(to.fields, 10)
+    const start = from.position
+    const end = to.position
 
     if (start.x === end.x && start.y === end.y) {
         const message = 'Segment starting at this vertex has zero length.'
@@ -203,7 +216,7 @@ function segmentFrom(from: Vertex, to: Vertex): PolylineSegment | DxfIssue {
     }
 
     try {
-        return bulgeToSegment({ start, end, bulge: from.fields.get(42)! })
+        return bulgeToSegment({ start, end, bulge: from.bulge })
     } catch (error) {
         if (!(error instanceof RangeError)) {
             throw error
@@ -220,7 +233,7 @@ function danglingBulge({ vertices, closed }: Path): DxfIssue[] {
     const last = vertices.at(-1)!
     const message = 'The last vertex of an open polyline cannot keep a bulge.'
 
-    return closed || last.fields.get(42) === 0
+    return closed || last.bulge === 0
         ? []
         : [vertexIssue(last, { code: 42, message })]
 }
@@ -234,7 +247,7 @@ function meetingIssues(path: Segments, tolerance: ModelTolerance): DxfIssue[] {
 
     return vertices.flatMap((vertex, index) => {
         const before = closed || index > 0 ? ends.at(index - 1) : undefined
-        const points = [point(vertex.fields, 10)]
+        const points = [vertex.position]
 
         for (const at of [before?.end, ends[index]?.start]) {
             if (at !== undefined) {
@@ -304,25 +317,31 @@ function readGeometry(
         groups: attributeGroups(record.tokens, HEADER_CODES),
     }
     const fields = readFields(entity, HEADER_RULES)
-    const { vertices, issues, found } = readVertices(record)
-    const extrusion = extrusionIssues(entity)
+    const extrusion = readExtrusion(entity)
+    const { vertices, issues, found } = readVertices(
+        record,
+        extrusion.direction ?? 1,
+    )
     const header = Array.isArray(fields)
         ? fields
         : countIssues(entity, { declared: fields.get(90)!, found })
 
     if (Array.isArray(fields) || header.length + issues.length > 0) {
-        return { issues: [...header, ...issues, ...extrusion] }
+        return { issues: [...header, ...issues, ...extrusion.issues] }
     }
 
-    // Vertices lie in the extrusion's plane, so any other plane withholds the value.
-    if (extrusion.length > 0) {
-        return { issues: extrusion }
+    if (extrusion.direction === undefined) {
+        return { issues: extrusion.issues }
     }
 
-    return buildPolyline(
+    const geometry = buildPolyline(
         { vertices, closed: fields.get(70) === CLOSED },
         tolerance,
     )
+
+    return geometry.value === undefined
+        ? geometry
+        : { value: geometry.value, issues: extrusion.issues }
 }
 
 // Vertices are checked before segments are built, and segments before the polyline.

@@ -573,29 +573,80 @@ describe('DXF LWPOLYLINE reader', () => {
         expect(() => read('', { distance: Number.NaN })).toThrow(RangeError)
     })
 
-    it('leaves flipped and other extrusions unconverted, withholding the value', () => {
+    it.each([false, true])(
+        'reflects vertices and bulges in traversal order, closed=%s',
+        (closed) => {
+            const flags = closed ? '70\n1\n' : ''
+            const lastBulge = closed ? 0.5 : 0
+            const source = polyline(
+                [
+                    [3, 2, -0.25],
+                    [9, 6],
+                    [5, -1, lastBulge],
+                ],
+                flags,
+            )
+            const world = polyline(
+                [
+                    [-3, 2, 0.25],
+                    [-9, 6],
+                    [-5, -1, -lastBulge],
+                ],
+                flags,
+            )
+            const expected = read(world).value!
+            const item = read(source + flipped)
+
+            expect(expected.geometry.closed).toBe(closed)
+            expect(item.value).toEqual(expected)
+            expect(item.handle).toBe('A1')
+            expect(item.issues).toEqual([
+                expect.objectContaining({
+                    kind: 'converted',
+                    code: 230,
+                    line: item.record.tokens.at(-1)!.line,
+                }),
+            ])
+            expect(
+                item.record.tokens
+                    .filter(({ code }) => code === 42)
+                    .map(({ value }) => value),
+            ).toEqual([-0.25, lastBulge])
+        },
+    )
+
+    it('withholds geometry for other extrusions and invalid flipped polylines', () => {
         expect(codes(`${lines}210\n0\n220\n0\n230\n1\n`)).toEqual([])
-        expect(read(lines + flipped).value).toBeUndefined()
-        expect(located(lines + flipped)).toEqual([
-            { code: 230, line: 25, vertex: undefined },
-        ])
-        expect(codes(`${lines}210\n1\n220\n0\n230\n0\n`)).toEqual([210])
-        expect(
-            codes(
+
+        const cases = [
+            [lines + '210\n1\n230\n-1\n', 210],
+            [lines + flipped + '230\n-1\n', 230],
+            [lines + flipped + '38\n1\n', 38],
+            [lines + flipped + '43\n1\n', 43],
+            [
                 polyline([
                     [0, 0],
                     [0, 0],
                 ]) + flipped,
-            ),
-        ).toEqual([230])
-        expect(
-            codes(
+                10,
+            ],
+            [
                 polyline([
                     [0, 0],
                     ['2e15', 0],
                 ]) + flipped,
-            ),
-        ).toEqual([10, 230])
+                10,
+            ],
+        ] as const
+
+        for (const [body, code] of cases) {
+            const item = read(body)
+
+            expect(item.value).toBeUndefined()
+            expect(item.issues).toEqual([
+                expect.objectContaining({ kind: 'unsupported', code }),
+            ])
+        }
     })
 
     it.each(['}', 'APP}'])(

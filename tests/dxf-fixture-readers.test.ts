@@ -235,18 +235,11 @@ describe('DXF fixture readers', () => {
         for (const { classification, geometry, ...entity } of primitives) {
             const { handle, layerName, color, lineweight, linetype } = entity
             const item = readDxfPrimitive(recordOf(handle), references)
-            // Converted entities have flipped normals, which CAD-050 converts.
-            const flipped = classification === 'converted'
 
             expect(item.handle).toBe(handle)
             expect(item.issues.map(({ kind, code }) => [kind, code])).toEqual(
-                flipped ? [['unsupported', 230]] : [],
+                classification === 'converted' ? [['converted', 230]] : [],
             )
-
-            if (flipped && entity.sourceType !== 'LINE') {
-                expect(item.value).toBeUndefined()
-                continue
-            }
 
             const { geometry: actual, ...properties } = item.value!
 
@@ -278,19 +271,12 @@ describe('DXF fixture readers', () => {
             })
 
             expect(item.handle).toBe(handle)
-
-            // Converted polylines have flipped normals, which CAD-050 converts.
-            if (classification === 'converted') {
-                expect(item.value).toBeUndefined()
-                expect(
-                    item.issues.map(({ kind, code }) => [kind, code]),
-                ).toEqual([['unsupported', 230]])
-                continue
-            }
+            expect(item.issues.map(({ kind, code }) => [kind, code])).toEqual(
+                classification === 'converted' ? [['converted', 230]] : [],
+            )
 
             const { geometry: actual, ...properties } = item.value!
 
-            expect(item.issues).toEqual([])
             expect(properties).toEqual({
                 layerName,
                 color,
