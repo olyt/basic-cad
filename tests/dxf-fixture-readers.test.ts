@@ -11,6 +11,7 @@ import { readDxfHeader, type DxfHeader } from '../src/dxf-io/header'
 import { records } from '../src/dxf-io/inventory'
 import { readDxfLayers } from '../src/dxf-io/layers'
 import { readDxfLinetypes } from '../src/dxf-io/linetypes'
+import { readDxfPolyline } from '../src/dxf-io/polylines'
 import { readDxfPrimitive } from '../src/dxf-io/primitives'
 import { readDxfTables } from '../src/dxf-io/tables'
 import { tokenizeDxf, type DxfToken } from '../src/dxf-io/tokenize'
@@ -23,6 +24,8 @@ interface Point {
 
 interface Geometry {
     readonly type: string
+    readonly closed?: boolean
+    readonly segments?: readonly Geometry[]
     readonly start?: Point
     readonly end?: Point
     readonly center?: Point
@@ -117,6 +120,14 @@ function referencesOf(path: string) {
 
 // Arc angles are scaled by their radius so every difference is a distance.
 function deviation(actual: Geometry, expected: Geometry): number {
+    if (actual.segments !== undefined) {
+        return Math.max(
+            ...actual.segments.map((segment, index) =>
+                deviation(segment, expected.segments![index]!),
+            ),
+        )
+    }
+
     const positions = (geometry: Geometry) => {
         const { start, end, center, radius = 0 } = geometry
         const { startAngle = 0, sweep = 0 } = geometry
@@ -246,6 +257,52 @@ describe('DXF fixture readers', () => {
                 linetype,
             })
             expect(actual.type).toBe(geometry!.type)
+            expect(deviation(actual, geometry!)).toBeLessThanOrEqual(
+                modelTolerance.distance,
+            )
+        }
+    })
+
+    it.each(fixtures)('reads the %s LWPOLYLINE geometry', (path) => {
+        const { references, recordOf } = referencesOf(path)
+        const { entities, modelTolerance } = manifestOf(path)
+        const polylines = entities.filter(
+            ({ sourceType }) => sourceType === 'LWPOLYLINE',
+        )
+
+        for (const { classification, geometry, ...entity } of polylines) {
+            const { handle, layerName, color, lineweight, linetype } = entity
+            const item = readDxfPolyline(recordOf(handle), {
+                references,
+                modelTolerance,
+            })
+
+            expect(item.handle).toBe(handle)
+
+            // Converted polylines have flipped normals, which CAD-050 converts.
+            if (classification === 'converted') {
+                expect(item.value).toBeUndefined()
+                expect(
+                    item.issues.map(({ kind, code }) => [kind, code]),
+                ).toEqual([['unsupported', 230]])
+                continue
+            }
+
+            const { geometry: actual, ...properties } = item.value!
+
+            expect(item.issues).toEqual([])
+            expect(properties).toEqual({
+                layerName,
+                color,
+                lineweight,
+                linetype,
+            })
+            expect(actual).toMatchObject({
+                closed: geometry!.closed,
+                segments: geometry!.segments!.map(({ type }) =>
+                    expect.objectContaining({ type }),
+                ),
+            })
             expect(deviation(actual, geometry!)).toBeLessThanOrEqual(
                 modelTolerance.distance,
             )
